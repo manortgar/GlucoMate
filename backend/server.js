@@ -63,7 +63,93 @@ app.get('/api/glucose/history', async (req, res) => {
     }
 });
 
+// ============================================================
+// ENDPOINTS: Perfil de Diabetes ("Mi Perfil")
+// ============================================================
+
+// Catálogo de insulinas (para los pickers del frontend)
+app.get('/api/insulins', async (req, res) => {
+    try {
+        const result = await db.query(
+            `SELECT * FROM insulins ORDER BY type, name`
+        );
+        res.json(result.rows);
+    } catch (error) {
+        console.error('Error obteniendo catálogo de insulinas:', error);
+        res.status(500).json({ error: 'Error interno obteniendo insulinas' });
+    }
+});
+
+// Perfil del usuario (JOIN con insulinas para devolver nombres completos)
+app.get('/api/profile', async (req, res) => {
+    try {
+        const result = await db.query(`
+            SELECT 
+                up.*,
+                fi.name  AS fast_insulin_name,
+                fi.type  AS fast_insulin_type,
+                fi.duration_hours AS fast_insulin_duration,
+                fi.peak_hours     AS fast_insulin_peak,
+                si.name  AS slow_insulin_name,
+                si.type  AS slow_insulin_type,
+                si.duration_hours AS slow_insulin_duration,
+                si.peak_hours     AS slow_insulin_peak
+            FROM user_profile up
+            LEFT JOIN insulins fi ON up.fast_insulin_id = fi.id
+            LEFT JOIN insulins si ON up.slow_insulin_id = si.id
+            WHERE up.id = 1
+        `);
+        if (result.rows.length === 0) {
+            return res.json(null); // Perfil aún no configurado
+        }
+        res.json(result.rows[0]);
+    } catch (error) {
+        console.error('Error obteniendo perfil:', error);
+        res.status(500).json({ error: 'Error interno obteniendo el perfil' });
+    }
+});
+
+// Guardar/Actualizar perfil (UPSERT → siempre es la fila con id=1)
+app.put('/api/profile', async (req, res) => {
+    try {
+        const {
+            fast_insulin_id, slow_insulin_id,
+            icr_breakfast, icr_mid_morning, icr_lunch, icr_snack, icr_dinner,
+            fsi
+        } = req.body;
+
+        const result = await db.query(`
+            INSERT INTO user_profile 
+                (id, fast_insulin_id, slow_insulin_id, icr_breakfast, icr_mid_morning, icr_lunch, icr_snack, icr_dinner, fsi, updated_at)
+            VALUES 
+                (1, $1, $2, $3, $4, $5, $6, $7, $8, NOW())
+            ON CONFLICT (id) DO UPDATE SET
+                fast_insulin_id = EXCLUDED.fast_insulin_id,
+                slow_insulin_id = EXCLUDED.slow_insulin_id,
+                icr_breakfast   = EXCLUDED.icr_breakfast,
+                icr_mid_morning = EXCLUDED.icr_mid_morning,
+                icr_lunch       = EXCLUDED.icr_lunch,
+                icr_snack       = EXCLUDED.icr_snack,
+                icr_dinner      = EXCLUDED.icr_dinner,
+                fsi             = EXCLUDED.fsi,
+                updated_at      = NOW()
+            RETURNING *;
+        `, [
+            fast_insulin_id || null, slow_insulin_id || null,
+            icr_breakfast || null, icr_mid_morning || null,
+            icr_lunch || null, icr_snack || null, icr_dinner || null,
+            fsi || null
+        ]);
+
+        res.json({ message: 'Perfil guardado correctamente', data: result.rows[0] });
+    } catch (error) {
+        console.error('Error guardando perfil:', error);
+        res.status(500).json({ error: 'Error interno guardando el perfil' });
+    }
+});
+
 // Inicializar el servidor para que acepte conexiones de toda la red local (0.0.0.0)
+
 app.listen(port, '0.0.0.0', () => {
     console.log(`🚀 Servidor Backend Node.js escuchando en todas las interfaces (0.0.0.0) en el puerto ${port}`);
     console.log(`📱 Tu móvil debe apuntar a: http://<TU_IP_WIFI_DEL_PC>:${port}/api/glucose`);
