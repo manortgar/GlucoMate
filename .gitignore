@@ -17,6 +17,7 @@ frontend/*.aab
 backend/node_modules/
 backend/.env
 backend/dist/
+backend/db_migrations/
 
 # --- Sistema Operativo ---
 .DS_Store
