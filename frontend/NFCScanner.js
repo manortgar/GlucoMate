@@ -12,6 +12,8 @@ import Svg, { Path, Line, Text as SvgText } from 'react-native-svg';
 import * as d3Shape from 'd3-shape';
 import * as d3Scale from 'd3-scale';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
 
 const { width, height } = Dimensions.get('window');
 const GRAPH_HEIGHT = height * 0.5;
@@ -237,31 +239,35 @@ const GlucoseScanner = () => {
     };
 
     return (
-        <View style={styles.container}>
-            {/* Cabecera Enorme */}
-            {renderCurrentGlucose()}
+        <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }} edges={['top']}>
+            <View style={styles.container}>
+                {/* Botón de Escaneo en la parte superior derecha */}
+                <TouchableOpacity
+                    style={[styles.headerButton, waitingForScan ? styles.headerButtonActive : null]}
+                    onPress={waitingForScan ? () => setWaitingForScan(false) : startInteraction}
+                >
+                    {isLoading ? (
+                        <ActivityIndicator size="small" color="#fff" />
+                    ) : (
+                        <MaterialCommunityIcons
+                            name={waitingForScan ? "nfc-search-variant" : "nfc"}
+                            size={35}
+                            color="#fff"
+                        />
+                    )}
+                </TouchableOpacity>
 
-            {/* Gráfica SVG */}
-            <View style={styles.graphContainer}>
-                {renderGraph()}
+                {/* Cabecera Enorme */}
+                <View style={styles.headerSpacer}>
+                    {renderCurrentGlucose()}
+                </View>
+
+                {/* Gráfica SVG */}
+                <View style={styles.graphContainer}>
+                    {renderGraph()}
+                </View>
             </View>
-
-            {/* Floating Action Button (FAB) Discreto Abajo Derecha */}
-            <TouchableOpacity
-                style={[styles.fab, waitingForScan ? styles.fabActive : null]}
-                onPress={waitingForScan ? () => setWaitingForScan(false) : startInteraction}
-            >
-                {isLoading ? (
-                    <ActivityIndicator size="small" color="#fff" />
-                ) : (
-                    <MaterialCommunityIcons
-                        name={waitingForScan ? "nfc-search-variant" : "nfc"}
-                        size={32}
-                        color="#fff"
-                    />
-                )}
-            </TouchableOpacity>
-        </View>
+        </SafeAreaView >
     );
 };
 
@@ -269,11 +275,34 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: '#fafafa',
-        paddingTop: 80, // Dejamos hueco a la barra de estado superior
+    },
+    headerButton: {
+        position: 'absolute',
+        top: 20,
+        right: 20,
+        width: 80,
+        height: 80,
+        borderRadius: 20,
+        backgroundColor: '#2196F3',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 10,
+        elevation: 5,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+    },
+    headerButtonActive: {
+        backgroundColor: '#FF9800',
+    },
+    headerSpacer: {
+        paddingTop: 100, // Hueco para no solaparse con el botón
+        alignItems: 'center',
     },
     topHeader: {
         alignItems: 'center',
-        marginBottom: 20,
+        marginBottom: 10,
     },
     valueRow: {
         flexDirection: 'row',
@@ -281,7 +310,7 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     glucoseValue: {
-        fontSize: 110, // Enorme
+        fontSize: 110,
         fontWeight: 'bold',
         letterSpacing: -3,
     },
@@ -299,27 +328,8 @@ const styles = StyleSheet.create({
         flex: 1,
         alignItems: 'center',
         justifyContent: 'center',
-        marginBottom: 80, // Hueco para el botón
+        marginTop: 20,
     },
-    fab: {
-        position: 'absolute',
-        bottom: 50,
-        right: 40,
-        width: 70,
-        height: 70,
-        borderRadius: 35,
-        backgroundColor: '#2196F3',
-        alignItems: 'center',
-        justifyContent: 'center',
-        elevation: 6, // Sombra en Android
-        shadowColor: '#000', // Sombras en iOS
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 5,
-    },
-    fabActive: {
-        backgroundColor: '#FF9800', // Naranja/Warning si está esperando sensor
-    }
 });
 
 export default GlucoseScanner;
