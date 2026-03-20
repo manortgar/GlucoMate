@@ -2,6 +2,7 @@ import React from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 import GlucoseScanner from './NFCScanner';
@@ -9,9 +10,11 @@ import ProfileScreen from './ProfileScreen';
 
 const Tab = createBottomTabNavigator();
 
-export default function App() {
+function AppNavigator() {
+    const insets = useSafeAreaInsets();
+
     return (
-        <NavigationContainer>
+        <>
             <StatusBar style="dark" />
             <Tab.Navigator
                 screenOptions={({ route }) => ({
@@ -21,8 +24,8 @@ export default function App() {
                     tabBarStyle: {
                         backgroundColor: '#ffffff',
                         borderTopColor: '#e0e0e0',
-                        height: 65,
-                        paddingBottom: 10,
+                        height: 65 + insets.bottom, // 👈 respeta la barra de navegación
+                        paddingBottom: insets.bottom + 4,
                         paddingTop: 6,
                         elevation: 8,
                         shadowColor: '#000',
@@ -48,6 +51,16 @@ export default function App() {
                 <Tab.Screen name="Glucosa" component={GlucoseScanner} />
                 <Tab.Screen name="Mi Perfil" component={ProfileScreen} />
             </Tab.Navigator>
-        </NavigationContainer>
+        </>
+    );
+}
+
+export default function App() {
+    return (
+        <SafeAreaProvider>
+            <NavigationContainer>
+                <AppNavigator />
+            </NavigationContainer>
+        </SafeAreaProvider>
     );
 }
