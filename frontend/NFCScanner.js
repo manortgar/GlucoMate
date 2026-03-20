@@ -82,6 +82,7 @@ const GlucoseScanner = () => {
             NfcManager.cancelTechnologyRequest();
             setWaitingForScan(false);
             await fetchJugglucoData();
+            await fetchJugglucoData2();
         } catch (error) {
             setWaitingForScan(false);
             NfcManager.cancelTechnologyRequest();
@@ -92,6 +93,7 @@ const GlucoseScanner = () => {
         setIsLoading(true);
         try {
             const url = 'http://127.0.0.1:17580/pebble?units=mg';
+
             console.log(`Haciendo fetch a: ${url}`);
 
             const response = await fetch(url);
@@ -112,6 +114,26 @@ const GlucoseScanner = () => {
             console.warn('Juggluco no disponible localmente.', error);
         } finally {
             setIsLoading(false);
+        }
+    };
+
+    const fetchJugglucoData2 = async () => {
+        try {
+            const url = 'http://127.0.0.1:17580/sgv.json?count=1';
+            const response = await fetch(url);
+            const data = await response.json();
+            const lastGlucose = data[0];
+            // { sgv: 112, direction: "Flat", datetime: 1710856000000, ... }
+            console.log(`Haciendo fetch a: ${url}`);
+
+
+
+            console.log('\n================ DATOS JUGGLUCO2 ================\n');
+            console.log(JSON.stringify(data, null, 2));
+            console.log('\n================================================\n');
+
+        } catch (error) {
+            console.warn('Juggluco no disponible localmente.', error);
         }
     };
 
