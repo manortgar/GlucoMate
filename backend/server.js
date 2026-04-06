@@ -148,6 +148,52 @@ app.put('/api/profile', async (req, res) => {
     }
 });
 
+// ============================================================
+// ENDPOINTS: Registro de Eventos (Dashboard)
+// ============================================================
+
+// Recuperar inyecciones recientes (ej. últimas 24h) con JOIN a insulinas para tener sus duraciones
+app.get('/api/insulin-events', async (req, res) => {
+    try {
+        const { hours = 24 } = req.query; // Por defecto 24 horas
+        const result = await db.query(`
+            SELECT 
+                e.id, 
+                e.units, 
+                e.event_time, 
+                i.name as insulin_name, 
+                i.duration_hours, 
+                i.type as insulin_type
+            FROM insulin_events e
+            LEFT JOIN insulins i ON e.insulin_id = i.id
+            WHERE e.event_time >= NOW() - INTERVAL '1 hour' * $1
+            ORDER BY e.event_time DESC
+        `, [hours]);
+        res.json(result.rows);
+    } catch (error) {
+        console.error('Error obteniendo inyecciones:', error);
+        res.status(500).json({ error: 'Error obteniendo historial de inyecciones' });
+    }
+});
+
+// Crear nuevo evento de insulina
+app.post('/api/insulin-events', async (req, res) => {
+    try {
+        const { units, event_time, insulin_id } = req.body;
+        
+        const result = await db.query(`
+            INSERT INTO insulin_events (units, event_time, insulin_id)
+            VALUES ($1, $2, $3)
+            RETURNING *
+        `, [units, event_time, insulin_id]);
+
+        res.status(201).json({ message: 'Dosis guardada', data: result.rows[0] });
+    } catch (error) {
+        console.error('Error guardando dosis:', error);
+        res.status(500).json({ error: 'Error al registrar la dosis de insulina' });
+    }
+});
+
 // Inicializar el servidor para que acepte conexiones de toda la red local (0.0.0.0)
 
 app.listen(port, '0.0.0.0', () => {
