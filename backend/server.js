@@ -163,6 +163,7 @@ app.get('/api/insulin-events', async (req, res) => {
                 e.event_time, 
                 i.name as insulin_name, 
                 i.duration_hours, 
+                i.peak_hours,
                 i.type as insulin_type
             FROM insulin_events e
             LEFT JOIN insulins i ON e.insulin_id = i.id
