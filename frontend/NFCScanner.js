@@ -254,6 +254,22 @@ const GlucoseScanner = () => {
         const y70 = scaleY(70);
         const y180 = scaleY(180);
 
+        // Calcular ticks del Eje X (cada 2 horas pares)
+        const ticks = [];
+        let currentTick = new Date(minTime);
+        currentTick.setMinutes(0, 0, 0);
+
+        if (currentTick.getHours() % 2 !== 0) {
+            currentTick.setHours(currentTick.getHours() + 1);
+        } else if (currentTick.getTime() < minTime) {
+            currentTick.setHours(currentTick.getHours() + 2);
+        }
+
+        while (currentTick.getTime() <= maxTime) {
+            ticks.push(new Date(currentTick));
+            currentTick.setHours(currentTick.getHours() + 2);
+        }
+
 
         return (
             <Svg width={GRAPH_WIDTH} height={GRAPH_HEIGHT}>
@@ -269,9 +285,8 @@ const GlucoseScanner = () => {
                     const endTimeMs = eventTimeMs + durationMs;
 
                     if (endTimeMs < minTime || eventTimeMs > maxTime) return null;
-
-                    const startX = scaleX(Math.max(eventTimeMs, minTime));
-                    const endX = scaleX(Math.min(endTimeMs, maxTime));
+                    const startX = scaleX(eventTimeMs);
+                    const endX = scaleX(endTimeMs);
 
                     return (
                         <Path
@@ -282,11 +297,22 @@ const GlucoseScanner = () => {
                     );
                 })}
 
-                <Line x1={20} y1={y180} x2={GRAPH_WIDTH - 20} y2={y180} stroke="#b0bec5" strokeWidth="1" strokeDasharray="4 4" />
-                <Line x1={20} y1={y70} x2={GRAPH_WIDTH - 20} y2={y70} stroke="#b0bec5" strokeWidth="1" strokeDasharray="4 4" />
+                <Line x1={0} y1={y180} x2={GRAPH_WIDTH} y2={y180} stroke="#b0bec5" strokeWidth="1" strokeDasharray="4 4" />
+                <Line x1={0} y1={y70} x2={GRAPH_WIDTH} y2={y70} stroke="#b0bec5" strokeWidth="1" strokeDasharray="4 4" />
 
                 <SvgText x={GRAPH_WIDTH - 30} y={y180 - 5} fontSize="10" fill="#9e9e9e" textAnchor="end">180</SvgText>
                 <SvgText x={GRAPH_WIDTH - 30} y={y70 - 5} fontSize="10" fill="#9e9e9e" textAnchor="end">70</SvgText>
+
+                {/* Etiquetas de hora debajo de la línea verde (y=70) */}
+                {ticks.map((tick, index) => {
+                    const xPos = scaleX(tick.getTime());
+                    const formattedTime = `${tick.getHours().toString().padStart(2, '0')}:${tick.getMinutes().toString().padStart(2, '0')}`;
+                    return (
+                        <SvgText key={`tick-${index}`} x={xPos} y={y70 + 14} fontSize="10" fill="#9e9e9e" textAnchor="middle" fontWeight="bold">
+                            {formattedTime}
+                        </SvgText>
+                    );
+                })}
 
 
                 {/* La Gran Curva Interpolada SVG */}

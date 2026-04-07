@@ -31,10 +31,18 @@ const InsulinModal = ({ visible, onClose, onSave, userProfile, isSaving }) => {
             eventDate.setDate(eventDate.getDate() - 1);
         }
 
+        const pad = (n) => (n < 10 ? '0' + n : n);
+        const localISO = eventDate.getFullYear() + '-'
+            + pad(eventDate.getMonth() + 1) + '-'
+            + pad(eventDate.getDate()) + 'T'
+            + pad(eventDate.getHours()) + ':'
+            + pad(eventDate.getMinutes()) + ':'
+            + pad(eventDate.getSeconds());
+
         onSave({
             insulin_id: insulinId,
             units: parseFloat(units),
-            event_time: eventDate.toISOString()
+            event_time: localISO
         });
     };
 
