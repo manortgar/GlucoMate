@@ -12,9 +12,10 @@ import NfcManager, { NfcTech } from 'react-native-nfc-manager';
 import Svg, { Path, Line, Text as SvgText } from 'react-native-svg';
 import * as d3Shape from 'd3-shape';
 import * as d3Scale from 'd3-scale';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { FontAwesome6, MaterialCommunityIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import InsulinModal from './InsulinModal';
+import { useFonts } from 'expo-font';
 
 
 
@@ -34,6 +35,10 @@ const GlucoseScanner = () => {
     const [activeInsulins, setActiveInsulins] = useState([]);
     const [isInsulinModalVisible, setInsulinModalVisible] = useState(false);
     const [isSavingEvent, setIsSavingEvent] = useState(false);
+
+    const [fontsLoaded] = useFonts({
+        'ArrowFont': require('./assets/arrow-font.ttf'),
+    });
 
     // IP DEL BACKEND (Actualizar si cambia)
     const backendUrlHistory = 'http://192.168.1.18:3000/api/glucose/history';
@@ -278,7 +283,7 @@ const GlucoseScanner = () => {
                     <Path d={`M 0 ${y180} L ${GRAPH_WIDTH} ${y180} L ${GRAPH_WIDTH} ${y70} L 0 ${y70} Z`} fill="rgba(200, 230, 201, 0.4)" />
                 )}
 
-                {/* Insulinas Rápidas Activas (Fondo Rosado apilado) */}
+                {/* Insulinas Rápidas Activas (Fondo Rosado apilado con línea de Pico) */}
                 {activeInsulins.filter(e => e.insulin_type === 'fast').map(event => {
                     const eventTimeMs = new Date(event.event_time).getTime();
                     const durationMs = (event.duration_hours || 4) * 60 * 60 * 1000;
@@ -288,13 +293,30 @@ const GlucoseScanner = () => {
                     const startX = scaleX(eventTimeMs);
                     const endX = scaleX(endTimeMs);
 
-                    return (
+                    let peakLine = null;
+                    if (event.peak_hours) {
+                        const peakTimeMs = eventTimeMs + (event.peak_hours * 60 * 60 * 1000);
+                        if (peakTimeMs >= minTime && peakTimeMs <= maxTime) {
+                            const peakX = scaleX(peakTimeMs);
+                            peakLine = (
+                                <Line
+                                    key={`fast-peak-${event.id}`}
+                                    x1={peakX} y1={40}
+                                    x2={peakX} y2={GRAPH_HEIGHT - 30}
+                                    stroke="#e91e63" strokeWidth="2" strokeDasharray="3 3"
+                                />
+                            );
+                        }
+                    }
+
+                    return [
                         <Path
-                            key={`fast-${event.id}`}
+                            key={`fast-path-${event.id}`}
                             d={`M ${startX} 40 L ${endX} 40 L ${endX} ${GRAPH_HEIGHT - 30} L ${startX} ${GRAPH_HEIGHT - 30} Z`}
                             fill="rgba(255, 105, 180, 0.3)"
-                        />
-                    );
+                        />,
+                        peakLine
+                    ];
                 })}
 
                 <Line x1={0} y1={y180} x2={GRAPH_WIDTH} y2={y180} stroke="#b0bec5" strokeWidth="1" strokeDasharray="4 4" />
@@ -391,8 +413,8 @@ const GlucoseScanner = () => {
                     {isLoading ? (
                         <ActivityIndicator size="small" color="#fff" />
                     ) : (
-                        <MaterialCommunityIcons
-                            name={waitingForScan ? "nfc-search-variant" : "nfc"}
+                        <FontAwesome6
+                            name={waitingForScan ? "nfc-directional" : "nfc-symbol"}
                             size={35}
                             color="#fff"
                         />
@@ -460,12 +482,12 @@ const styles = StyleSheet.create({
     },
     headerButton: {
         position: 'absolute',
-        top: 20,
-        right: 20,
-        width: 80,
-        height: 80,
-        borderRadius: 20,
-        backgroundColor: '#2196F3',
+        top: 60,
+        left: 30,
+        width: 60,
+        height: 60,
+        borderRadius: 100,
+        backgroundColor: '#80beacff',
         alignItems: 'center',
         justifyContent: 'center',
         zIndex: 10,
@@ -479,7 +501,7 @@ const styles = StyleSheet.create({
         backgroundColor: '#FF9800',
     },
     headerSpacer: {
-        paddingTop: 100, // Hueco para no solaparse con el botón
+        paddingTop: 10, // Hueco para no solaparse con el botón
         alignItems: 'center',
     },
     actionRow: {
@@ -514,8 +536,9 @@ const styles = StyleSheet.create({
     },
     valueRow: {
         flexDirection: 'row',
-        alignItems: 'baseline',
+        alignItems: 'center',
         justifyContent: 'center',
+        paddingLeft: 60,
     },
     glucoseValue: {
         fontSize: 110,
@@ -526,6 +549,10 @@ const styles = StyleSheet.create({
         fontSize: 55,
         marginLeft: 15,
         color: '#757575',
+        paddingBottom: 10,
+        fontFamily: 'ArrowFont',
+        fontWeight: 400,
+        fontStyle: 'normal',
     },
     unitText: {
         fontSize: 24,
