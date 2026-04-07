@@ -259,7 +259,7 @@ const GlucoseScanner = () => {
             <Svg width={GRAPH_WIDTH} height={GRAPH_HEIGHT}>
                 {/* Rectángulo de rango objetivo original (Verde) */}
                 {y180 < (GRAPH_HEIGHT - 30) && y70 > 20 && (
-                    <Path d={`M 20 ${y180} L ${GRAPH_WIDTH - 20} ${y180} L ${GRAPH_WIDTH - 20} ${y70} L 20 ${y70} Z`} fill="rgba(200, 230, 201, 0.4)" />
+                    <Path d={`M 0 ${y180} L ${GRAPH_WIDTH} ${y180} L ${GRAPH_WIDTH} ${y70} L 0 ${y70} Z`} fill="rgba(200, 230, 201, 0.4)" />
                 )}
 
                 {/* Insulinas Rápidas Activas (Fondo Rosado apilado) */}
