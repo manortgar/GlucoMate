@@ -269,6 +269,57 @@ app.post('/api/food-events', async (req, res) => {
     }
 });
 
+// ============================================================
+// ENDPOINTS: Registro de Deportes (Exercise Events)
+// ============================================================
+
+// Obtener catálogo de deportes
+app.get('/api/sports', async (req, res) => {
+    try {
+        const result = await db.query('SELECT * FROM sports ORDER BY name ASC');
+        res.json(result.rows);
+    } catch (error) {
+        console.error('Error obteniendo deportes:', error);
+        res.status(500).json({ error: 'Error obteniendo catálogo de deportes' });
+    }
+});
+
+// Recuperar historial de ejercicio
+app.get('/api/exercise-events', async (req, res) => {
+    try {
+        const { hours = 24 } = req.query;
+        const result = await db.query(`
+            SELECT e.id, e.start_time, e.duration_minutes, s.name as sport_name, s.intensity_type, s.danger_window_hours
+            FROM exercise_events e
+            JOIN sports s ON e.sport_id = s.id
+            WHERE e.start_time >= NOW() - INTERVAL '1 hour' * $1
+            ORDER BY e.start_time DESC
+        `, [hours]);
+        res.json(result.rows);
+    } catch (error) {
+        console.error('Error obteniendo historial de ejercicio:', error);
+        res.status(500).json({ error: 'Error obteniendo historial de ejercicios' });
+    }
+});
+
+// Crear nuevo evento de ejercicio
+app.post('/api/exercise-events', async (req, res) => {
+    try {
+        const { sport_id, start_time, duration_minutes } = req.body;
+        
+        const result = await db.query(`
+            INSERT INTO exercise_events (sport_id, start_time, duration_minutes)
+            VALUES ($1, $2, $3)
+            RETURNING *
+        `, [sport_id, start_time, duration_minutes]);
+
+        res.status(201).json({ message: 'Ejercicio registrado con éxito', data: result.rows[0] });
+    } catch (error) {
+        console.error('Error guardando ejercicio:', error);
+        res.status(500).json({ error: 'Error al registrar el evento deportivo' });
+    }
+});
+
 // Inicializar el servidor para que acepte conexiones de toda la red local (0.0.0.0)
 
 app.listen(port, '0.0.0.0', () => {

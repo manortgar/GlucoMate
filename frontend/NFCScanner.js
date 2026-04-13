@@ -16,6 +16,7 @@ import { FontAwesome6, MaterialCommunityIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import InsulinModal from './InsulinModal';
 import FoodModal from './FoodModal';
+import ExerciseModal from './ExerciseModal';
 import { useFonts } from 'expo-font';
 
 
@@ -38,6 +39,7 @@ const GlucoseScanner = () => {
     const [isSavingEvent, setIsSavingEvent] = useState(false);
     const [showFastInsulin, setShowFastInsulin] = useState(true);
     const [isFoodModalVisible, setFoodModalVisible] = useState(false);
+    const [isExerciseModalVisible, setExerciseModalVisible] = useState(false);
 
     const [fontsLoaded] = useFonts({
         'ArrowFont': require('./assets/arrow-font.ttf'),
@@ -49,6 +51,7 @@ const GlucoseScanner = () => {
     const backendUrlProfile = 'http://192.168.1.24:3000/api/profile';
     const backendUrlInsulinEvents = 'http://192.168.1.24:3000/api/insulin-events';
     const backendUrlFoodEvents = 'http://192.168.1.24:3000/api/food-events';
+    const backendUrlSportEvents = 'http://192.168.1.24:3000/api/exercise-events';
 
     useEffect(() => {
         const initNfc = async () => {
@@ -159,6 +162,24 @@ const GlucoseScanner = () => {
             }
         } catch (error) {
             console.error('Error guardando comida:', error);
+        } finally {
+            setIsSavingEvent(false);
+        }
+    };
+
+    const handleSaveExercise = async (eventData) => {
+        setIsSavingEvent(true);
+        try {
+            const res = await fetch(backendUrlSportEvents, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(eventData),
+            });
+            if (res.ok) {
+                setExerciseModalVisible(false);
+            }
+        } catch (error) {
+            console.error('Error guardando deporte:', error);
         } finally {
             setIsSavingEvent(false);
         }
@@ -491,12 +512,12 @@ const GlucoseScanner = () => {
                         <Text style={styles.actionLabel}>Insulina</Text>
                     </TouchableOpacity>
 
-                    <TouchableOpacity style={styles.actionButton}>
+                    <TouchableOpacity style={styles.actionButton} onPress={() => setExerciseModalVisible(true)}>
                         <Image
                             source={require('./assets/bike.png')}
                             style={{ width: 50, height: 50, tintColor: '#ff9800' }}
                         />
-                        <Text style={styles.actionLabel}>Ejercicio</Text>
+                        <Text style={styles.actionLabel}>Deporte</Text>
                     </TouchableOpacity>
                 </View>
 
@@ -523,6 +544,16 @@ const GlucoseScanner = () => {
                         onSave={handleSaveFood}
                         userProfile={userProfile}
                         isSaving={isSavingEvent}
+                    />
+                )}
+
+                {isExerciseModalVisible && (
+                    <ExerciseModal
+                        visible={isExerciseModalVisible}
+                        onClose={() => setExerciseModalVisible(false)}
+                        onSave={handleSaveExercise}
+                        isSaving={isSavingEvent}
+                        backendUrl={backendUrlSportEvents}
                     />
                 )}
 
