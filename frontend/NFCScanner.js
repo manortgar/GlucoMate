@@ -9,7 +9,7 @@ import {
     Dimensions
 } from 'react-native';
 import NfcManager, { NfcTech } from 'react-native-nfc-manager';
-import Svg, { Path, Line, Text as SvgText } from 'react-native-svg';
+import Svg, { Path, Line, Text as SvgText, Circle, G } from 'react-native-svg';
 import * as d3Shape from 'd3-shape';
 import * as d3Scale from 'd3-scale';
 import { FontAwesome6, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -35,11 +35,17 @@ const GlucoseScanner = () => {
     // Modal Events State
     const [userProfile, setUserProfile] = useState(null);
     const [activeInsulins, setActiveInsulins] = useState([]);
+    const [foodEvents, setFoodEvents] = useState([]);
+    const [exerciseEvents, setExerciseEvents] = useState([]);
+
     const [isInsulinModalVisible, setInsulinModalVisible] = useState(false);
-    const [isSavingEvent, setIsSavingEvent] = useState(false);
-    const [showFastInsulin, setShowFastInsulin] = useState(true);
     const [isFoodModalVisible, setFoodModalVisible] = useState(false);
     const [isExerciseModalVisible, setExerciseModalVisible] = useState(false);
+    const [isSavingEvent, setIsSavingEvent] = useState(false);
+
+    const [showFastInsulin, setShowFastInsulin] = useState(true);
+    const [showFood, setShowFood] = useState(true);
+    const [showExercise, setShowExercise] = useState(true);
 
     const [fontsLoaded] = useFonts({
         'ArrowFont': require('./assets/arrow-font.ttf'),
@@ -119,13 +125,23 @@ const GlucoseScanner = () => {
         }
     };
 
-    const fetchEvents = async () => { // fetchInsulins
+    const fetchEvents = async () => {
         try {
-            const res = await fetch(backendUrlInsulinEvents + '?hours=24');
-            const data = await res.json();
-            setActiveInsulins(data);
+            const resIns = fetch(backendUrlInsulinEvents + '?hours=24');
+            const resFood = fetch(backendUrlFoodEvents + '?hours=24');
+            const resEx = fetch(backendUrlSportEvents + '?hours=24');
+
+            const [dataInsulin, dataFood, dataExercise] = await Promise.all([
+                resIns.then(r => r.json()),
+                resFood.then(r => r.json()),
+                resEx.then(r => r.json())
+            ]);
+
+            setActiveInsulins(dataInsulin);
+            setFoodEvents(dataFood);
+            setExerciseEvents(dataExercise);
         } catch (e) {
-            console.error('Error cargando eventos de insulina:', e);
+            console.error('Error cargando eventos:', e);
         }
     };
 
@@ -363,6 +379,59 @@ const GlucoseScanner = () => {
                     ];
                 })}
 
+                {/* Deporte Activo (Fondo Naranja translúcido) */}
+                {showExercise && exerciseEvents.map(event => {
+                    const eventTimeMs = new Date(event.start_time).getTime();
+                    const durationMs = event.duration_minutes * 60 * 1000;
+                    const endTimeMs = eventTimeMs + durationMs;
+
+                    if (endTimeMs < minTime || eventTimeMs > maxTime) return null;
+                    const startX = scaleX(eventTimeMs);
+                    const endX = scaleX(endTimeMs);
+
+                    let dangerLine = null;
+                    if (event.danger_window_hours) {
+                        const dangerEndMs = eventTimeMs + (parseFloat(event.danger_window_hours) * 60 * 60 * 1000);
+                        if (dangerEndMs > minTime && eventTimeMs < maxTime) {
+                            const dangerEndX = scaleX(dangerEndMs);
+                            dangerLine = (
+                                <Line
+                                    key={`sport-danger-${event.id}`}
+                                    x1={endX} y1={GRAPH_HEIGHT - 35}
+                                    x2={dangerEndX} y2={GRAPH_HEIGHT - 35}
+                                    stroke="#ff9800" strokeWidth="2" strokeDasharray="4 4"
+                                />
+                            );
+                        }
+                    }
+
+                    return (
+                        <G key={`sport-${event.id}`}>
+                            <Path
+                                d={`M ${startX} 40 L ${endX} 40 L ${endX} ${GRAPH_HEIGHT - 30} L ${startX} ${GRAPH_HEIGHT - 30} Z`}
+                                fill="rgba(255, 152, 0, 0.3)"
+                            />
+                            {dangerLine}
+                        </G>
+                    );
+                })}
+
+                {/* Comidas (Punto verde + Línea vertical) */}
+                {showFood && foodEvents.map(event => {
+                    const eventTimeMs = new Date(event.event_time).getTime();
+                    if (eventTimeMs < minTime || eventTimeMs > maxTime) return null;
+                    const posX = scaleX(eventTimeMs);
+                    const posY = GRAPH_HEIGHT - 30;
+
+                    return [
+                        <Line key={`food-line-${event.id}`} x1={posX} y1={40} x2={posX} y2={posY} stroke="#4caf50" strokeWidth="1" strokeDasharray="3 3" />,
+                        <Circle key={`food-circle-${event.id}`} cx={posX} cy={50} r="11" fill="#4caf50" />,
+                        <SvgText key={`food-text-${event.id}`} x={posX - 3} y={52} fontSize="8" fill="#fff" textAnchor="middle" fontWeight="bold">
+                            {Math.round(event.carbs_g)}g
+                        </SvgText>
+                    ];
+                })}
+
                 <Line x1={0} y1={y180} x2={GRAPH_WIDTH} y2={y180} stroke="#b0bec5" strokeWidth="1" strokeDasharray="4 4" />
                 <Line x1={0} y1={y70} x2={GRAPH_WIDTH} y2={y70} stroke="#b0bec5" strokeWidth="1" strokeDasharray="4 4" />
 
@@ -451,20 +520,6 @@ const GlucoseScanner = () => {
                         Basal restante: {remainingHours}
                     </Text>
                 </View>
-
-                {/* Checkbox para alternar la vista de insulinas rápidas */}
-                <TouchableOpacity
-                    style={styles.checkboxContainer}
-                    onPress={() => setShowFastInsulin(!showFastInsulin)}
-                    activeOpacity={0.7}
-                >
-                    <MaterialCommunityIcons
-                        name={showFastInsulin ? "check-circle" : "circle-outline"}
-                        size={20}
-                        color={showFastInsulin ? "#e91e63" : "#bdbdbd"}
-                    />
-                    <Text style={[styles.checkboxLabel, !showFastInsulin && { color: '#bdbdbd' }]}>Bolos</Text>
-                </TouchableOpacity>
             </View>
         );
     };
@@ -518,6 +573,33 @@ const GlucoseScanner = () => {
                             style={{ width: 50, height: 50, tintColor: '#ff9800' }}
                         />
                         <Text style={styles.actionLabel}>Deporte</Text>
+                    </TouchableOpacity>
+                </View>
+
+                {/* Filtros de Capas de D3 (Chips) */}
+                <View style={styles.filterRow}>
+                    <TouchableOpacity
+                        style={[styles.chip, showFood && styles.chipActiveFood]}
+                        onPress={() => setShowFood(!showFood)}
+                    >
+                        <MaterialCommunityIcons name={showFood ? "check" : "close"} size={16} color={showFood ? "#fff" : "#9e9e9e"} />
+                        <Text style={[styles.chipText, showFood && { color: '#fff' }]}>Comida</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        style={[styles.chip, showFastInsulin && styles.chipActiveInsulin]}
+                        onPress={() => { setShowFastInsulin(!showFastInsulin); console.log(showFastInsulin) }}
+                    >
+                        <MaterialCommunityIcons name={showFastInsulin ? "check" : "close"} size={16} color={showFastInsulin ? "#fff" : "#9e9e9e"} />
+                        <Text style={[styles.chipText, showFastInsulin && { color: '#fff' }]}>Bolos</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        style={[styles.chip, showExercise && styles.chipActiveExercise]}
+                        onPress={() => setShowExercise(!showExercise)}
+                    >
+                        <MaterialCommunityIcons name={showExercise ? "check" : "close"} size={16} color={showExercise ? "#fff" : "#9e9e9e"} />
+                        <Text style={[styles.chipText, showExercise && { color: '#fff' }]}>Deporte</Text>
                     </TouchableOpacity>
                 </View>
 
@@ -597,6 +679,8 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         marginVertical: 20,
         paddingHorizontal: 20,
+        zIndex: 10,
+        elevation: 10,
     },
     actionButton: {
         alignItems: 'center',
@@ -679,21 +763,44 @@ const styles = StyleSheet.create({
     basalTextInactive: {
         color: '#9e9e9e',
     },
-    checkboxContainer: {
+    filterRow: {
+        flexDirection: 'row',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginTop: 10,
+        marginBottom: 5,
+        zIndex: 20,
+        elevation: 20,
+        gap: 18, // gap requires react-native >= 0.71, if problem, we will use margins
+    },
+    chip: {
         flexDirection: 'row',
         alignItems: 'center',
         paddingVertical: 6,
         paddingHorizontal: 12,
-        backgroundColor: '#fce4ec', // Fondo rosado muy clarito para match visual
+        backgroundColor: '#f5f5f5',
         borderRadius: 20,
         borderWidth: 1,
-        borderColor: '#f8bbd0',
+        borderColor: '#e0e0e0',
+        marginHorizontal: 5,
     },
-    checkboxLabel: {
-        marginLeft: 6,
-        fontSize: 13,
-        fontWeight: '700',
-        color: '#e91e63',
+    chipText: {
+        marginLeft: 4,
+        fontSize: 12,
+        fontWeight: '600',
+        color: '#9e9e9e',
+    },
+    chipActiveInsulin: {
+        backgroundColor: '#d86c90ff',
+        borderColor: '#d86c90ff',
+    },
+    chipActiveFood: {
+        backgroundColor: '#65d169ff',
+        borderColor: '#65d169ff',
+    },
+    chipActiveExercise: {
+        backgroundColor: '#ffba53ff',
+        borderColor: '#ffba53ff',
     },
 });
 
