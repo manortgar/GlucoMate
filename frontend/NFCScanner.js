@@ -35,16 +35,17 @@ const GlucoseScanner = () => {
     const [activeInsulins, setActiveInsulins] = useState([]);
     const [isInsulinModalVisible, setInsulinModalVisible] = useState(false);
     const [isSavingEvent, setIsSavingEvent] = useState(false);
+    const [showFastInsulin, setShowFastInsulin] = useState(true);
 
     const [fontsLoaded] = useFonts({
         'ArrowFont': require('./assets/arrow-font.ttf'),
     });
 
     // IP DEL BACKEND (Actualizar si cambia)
-    const backendUrlHistory = 'http://192.168.1.18:3000/api/glucose/history';
-    const backendUrlUpload = 'http://192.168.1.18:3000/api/glucose';
-    const backendUrlProfile = 'http://192.168.1.18:3000/api/profile';
-    const backendUrlInsulinEvents = 'http://192.168.1.18:3000/api/insulin-events';
+    const backendUrlHistory = 'http://192.168.1.24:3000/api/glucose/history';
+    const backendUrlUpload = 'http://192.168.1.24:3000/api/glucose';
+    const backendUrlProfile = 'http://192.168.1.24:3000/api/profile';
+    const backendUrlInsulinEvents = 'http://192.168.1.24:3000/api/insulin-events';
 
     useEffect(() => {
         const initNfc = async () => {
@@ -284,7 +285,7 @@ const GlucoseScanner = () => {
                 )}
 
                 {/* Insulinas Rápidas Activas (Fondo Rosado apilado con línea de Pico) */}
-                {activeInsulins.filter(e => e.insulin_type === 'fast').map(event => {
+                {showFastInsulin && activeInsulins.filter(e => e.insulin_type === 'fast').map(event => {
                     const eventTimeMs = new Date(event.event_time).getTime();
                     const durationMs = (event.duration_hours || 4) * 60 * 60 * 1000;
                     const endTimeMs = eventTimeMs + durationMs;
@@ -384,20 +385,43 @@ const GlucoseScanner = () => {
 
     const renderBasalCountdown = () => {
         const latestSlow = activeInsulins.find(e => e.insulin_type === 'slow');
-        if (!latestSlow) return null;
 
-        const eventTimeMs = new Date(latestSlow.event_time).getTime();
-        const durationMs = (latestSlow.duration_hours || 24) * 60 * 60 * 1000;
-        const endTimeMs = eventTimeMs + durationMs;
-        const nowMs = new Date().getTime();
+        let remainingHours = '--';
+        let isInactive = true;
 
-        if (nowMs >= endTimeMs) return null;
+        if (latestSlow) {
+            const eventTimeMs = new Date(latestSlow.event_time).getTime();
+            const durationMs = (latestSlow.duration_hours || 24) * 60 * 60 * 1000;
+            const endTimeMs = eventTimeMs + durationMs;
+            const nowMs = new Date().getTime();
 
-        const remainingHours = ((endTimeMs - nowMs) / (1000 * 60 * 60)).toFixed(1);
+            if (nowMs < endTimeMs) {
+                remainingHours = ((endTimeMs - nowMs) / (1000 * 60 * 60)).toFixed(1) + 'h';
+                isInactive = false;
+            }
+        }
 
         return (
-            <View style={styles.basalBadge}>
-                <Text style={styles.basalText}>Basal restante: {remainingHours}h</Text>
+            <View style={styles.basalRowContainer}>
+                <View style={[styles.basalBadge, isInactive && styles.basalBadgeInactive]}>
+                    <Text style={[styles.basalText, isInactive && styles.basalTextInactive]}>
+                        Basal restante: {remainingHours}
+                    </Text>
+                </View>
+
+                {/* Checkbox para alternar la vista de insulinas rápidas */}
+                <TouchableOpacity
+                    style={styles.checkboxContainer}
+                    onPress={() => setShowFastInsulin(!showFastInsulin)}
+                    activeOpacity={0.7}
+                >
+                    <MaterialCommunityIcons
+                        name={showFastInsulin ? "check-circle" : "circle-outline"}
+                        size={20}
+                        color={showFastInsulin ? "#e91e63" : "#bdbdbd"}
+                    />
+                    <Text style={[styles.checkboxLabel, !showFastInsulin && { color: '#bdbdbd' }]}>Bolos</Text>
+                </TouchableOpacity>
             </View>
         );
     };
@@ -565,19 +589,48 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         marginTop: 20,
     },
-    basalBadge: {
+    basalRowContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
         marginTop: 5,
+    },
+    basalBadge: {
         backgroundColor: '#f3e5f5', // Morado muy claro
         paddingVertical: 6,
         paddingHorizontal: 16,
         borderRadius: 20,
         borderWidth: 1,
         borderColor: '#e1bee7',
+        marginRight: 10,
+    },
+    basalBadgeInactive: {
+        backgroundColor: '#f5f5f5',
+        borderColor: '#e0e0e0',
     },
     basalText: {
         color: '#9c27b0',
         fontSize: 13,
         fontWeight: '700',
+    },
+    basalTextInactive: {
+        color: '#9e9e9e',
+    },
+    checkboxContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 6,
+        paddingHorizontal: 12,
+        backgroundColor: '#fce4ec', // Fondo rosado muy clarito para match visual
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: '#f8bbd0',
+    },
+    checkboxLabel: {
+        marginLeft: 6,
+        fontSize: 13,
+        fontWeight: '700',
+        color: '#e91e63',
     },
 });
 

@@ -5,14 +5,14 @@ import {
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 
-const BACKEND_URL = 'http://192.168.1.18:3000';
+const BACKEND_URL = 'http://192.168.1.24:3000';
 
 const MEAL_LABELS = [
-    { key: 'icr_breakfast',   label: '🌅 Desayuno' },
+    { key: 'icr_breakfast', label: '🌅 Desayuno' },
     { key: 'icr_mid_morning', label: '☕ Media Mañana' },
-    { key: 'icr_lunch',       label: '🍽️ Almuerzo' },
-    { key: 'icr_snack',       label: '🍎 Merienda' },
-    { key: 'icr_dinner',      label: '🌙 Cena' },
+    { key: 'icr_lunch', label: '🍽️ Almuerzo' },
+    { key: 'icr_snack', label: '🍎 Merienda' },
+    { key: 'icr_dinner', label: '🌙 Cena' },
 ];
 
 const ProfileScreen = () => {
@@ -49,11 +49,11 @@ const ProfileScreen = () => {
                 setFastInsulinId(profData.fast_insulin_id ? String(profData.fast_insulin_id) : null);
                 setSlowInsulinId(profData.slow_insulin_id ? String(profData.slow_insulin_id) : null);
                 setIcrValues({
-                    icr_breakfast:   String(profData.icr_breakfast   ?? ''),
+                    icr_breakfast: String(profData.icr_breakfast ?? ''),
                     icr_mid_morning: String(profData.icr_mid_morning ?? ''),
-                    icr_lunch:       String(profData.icr_lunch       ?? ''),
-                    icr_snack:       String(profData.icr_snack       ?? ''),
-                    icr_dinner:      String(profData.icr_dinner      ?? ''),
+                    icr_lunch: String(profData.icr_lunch ?? ''),
+                    icr_snack: String(profData.icr_snack ?? ''),
+                    icr_dinner: String(profData.icr_dinner ?? ''),
                 });
                 setFsi(String(profData.fsi ?? ''));
             }
@@ -73,12 +73,12 @@ const ProfileScreen = () => {
             const payload = {
                 fast_insulin_id: fastInsulinId ? parseInt(fastInsulinId) : null,
                 slow_insulin_id: slowInsulinId ? parseInt(slowInsulinId) : null,
-                icr_breakfast:   parseFloat(icrValues.icr_breakfast)   || null,
+                icr_breakfast: parseFloat(icrValues.icr_breakfast) || null,
                 icr_mid_morning: parseFloat(icrValues.icr_mid_morning) || null,
-                icr_lunch:       parseFloat(icrValues.icr_lunch)       || null,
-                icr_snack:       parseFloat(icrValues.icr_snack)       || null,
-                icr_dinner:      parseFloat(icrValues.icr_dinner)      || null,
-                fsi:             parseFloat(fsi)                       || null,
+                icr_lunch: parseFloat(icrValues.icr_lunch) || null,
+                icr_snack: parseFloat(icrValues.icr_snack) || null,
+                icr_dinner: parseFloat(icrValues.icr_dinner) || null,
+                fsi: parseFloat(fsi) || null,
             };
             const res = await fetch(`${BACKEND_URL}/api/profile`, {
                 method: 'PUT',
@@ -195,7 +195,7 @@ const ProfileScreen = () => {
             <TouchableOpacity
                 style={[
                     styles.saveButton,
-                    saveStatus === 'ok'    && styles.saveButtonOk,
+                    saveStatus === 'ok' && styles.saveButtonOk,
                     saveStatus === 'error' && styles.saveButtonError,
                 ]}
                 onPress={handleSave}
@@ -204,9 +204,9 @@ const ProfileScreen = () => {
                 {isSaving
                     ? <ActivityIndicator color="#fff" />
                     : <Text style={styles.saveButtonText}>
-                        {saveStatus === 'ok'    ? '✅ Guardado' :
-                         saveStatus === 'error' ? '❌ Error al guardar' :
-                         'Guardar Perfil'}
+                        {saveStatus === 'ok' ? '✅ Guardado' :
+                            saveStatus === 'error' ? '❌ Error al guardar' :
+                                'Guardar Perfil'}
                     </Text>
                 }
             </TouchableOpacity>
@@ -260,9 +260,9 @@ const styles = StyleSheet.create({
         shadowColor: '#2196F3', shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3, shadowRadius: 8, elevation: 5,
     },
-    saveButtonOk:    { backgroundColor: '#4caf50' },
+    saveButtonOk: { backgroundColor: '#4caf50' },
     saveButtonError: { backgroundColor: '#f44336' },
-    saveButtonText:  { color: '#fff', fontSize: 16, fontWeight: '700', letterSpacing: 0.5 },
+    saveButtonText: { color: '#fff', fontSize: 16, fontWeight: '700', letterSpacing: 0.5 },
 });
 
 export default ProfileScreen;
