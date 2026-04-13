@@ -195,6 +195,80 @@ app.post('/api/insulin-events', async (req, res) => {
     }
 });
 
+// ============================================================
+// ENDPOINTS: Registro de Comidas (Food Events)
+// ============================================================
+
+// Recuperar historial de comidas
+app.get('/api/food-events', async (req, res) => {
+    try {
+        const { hours = 24 } = req.query;
+        const result = await db.query(`
+            SELECT id, carbs_g, event_time 
+            FROM food_events 
+            WHERE event_time >= NOW() - INTERVAL '1 hour' * $1
+            ORDER BY event_time DESC
+        `, [hours]);
+        res.json(result.rows);
+    } catch (error) {
+        console.error('Error obteniendo comidas:', error);
+        res.status(500).json({ error: 'Error obteniendo historial de comidas' });
+    }
+});
+
+// Crear nuevo evento de comida (y de insulina si se aplica bolo)
+app.post('/api/food-events', async (req, res) => {
+    let client;
+    try {
+        const { carbs, units, event_time } = req.body;
+        client = await db.connect();
+        await client.query('BEGIN');
+
+        // 1. Insertar carbs en food_events
+        const foodResult = await client.query(`
+            INSERT INTO food_events (carbs_g, event_time)
+            VALUES ($1, $2)
+            RETURNING *
+        `, [carbs, event_time]);
+
+        let insulinResult = null;
+        
+        // 2. Si hay insulina, insertarla en insulin_events
+        if (units && parseFloat(units) > 0) {
+            // Obtener perfil para saber fast_insulin_id
+            const profileRes = await client.query('SELECT fast_insulin_id FROM user_profile WHERE id = 1');
+            const fastInsulinId = profileRes.rows[0]?.fast_insulin_id;
+            
+            if (!fastInsulinId) {
+                throw new Error("No hay insulina rápida definida en el perfil, no se puede registrar el bolo.");
+            }
+
+            const insRes = await client.query(`
+                INSERT INTO insulin_events (units, event_time, insulin_id)
+                VALUES ($1, $2, $3)
+                RETURNING *
+            `, [parseFloat(units), event_time, fastInsulinId]);
+            
+            insulinResult = insRes.rows[0];
+        }
+
+        await client.query('COMMIT');
+
+        res.status(201).json({ 
+            message: 'Comida registrada con éxito', 
+            food: foodResult.rows[0],
+            insulin: insulinResult 
+        });
+
+    } catch (error) {
+        if (client) await client.query('ROLLBACK');
+        console.error('Error guardando comida:', error);
+        res.status(500).json({ error: error.message || 'Error al registrar la comida' });
+    } finally {
+        if (client) client.release();
+    }
+});
+
 // Inicializar el servidor para que acepte conexiones de toda la red local (0.0.0.0)
 
 app.listen(port, '0.0.0.0', () => {

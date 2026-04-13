@@ -15,6 +15,7 @@ import * as d3Scale from 'd3-scale';
 import { FontAwesome6, MaterialCommunityIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import InsulinModal from './InsulinModal';
+import FoodModal from './FoodModal';
 import { useFonts } from 'expo-font';
 
 
@@ -36,6 +37,7 @@ const GlucoseScanner = () => {
     const [isInsulinModalVisible, setInsulinModalVisible] = useState(false);
     const [isSavingEvent, setIsSavingEvent] = useState(false);
     const [showFastInsulin, setShowFastInsulin] = useState(true);
+    const [isFoodModalVisible, setFoodModalVisible] = useState(false);
 
     const [fontsLoaded] = useFonts({
         'ArrowFont': require('./assets/arrow-font.ttf'),
@@ -46,6 +48,7 @@ const GlucoseScanner = () => {
     const backendUrlUpload = 'http://192.168.1.24:3000/api/glucose';
     const backendUrlProfile = 'http://192.168.1.24:3000/api/profile';
     const backendUrlInsulinEvents = 'http://192.168.1.24:3000/api/insulin-events';
+    const backendUrlFoodEvents = 'http://192.168.1.24:3000/api/food-events';
 
     useEffect(() => {
         const initNfc = async () => {
@@ -137,6 +140,25 @@ const GlucoseScanner = () => {
             }
         } catch (error) {
             console.error('Error guardando evento:', error);
+        } finally {
+            setIsSavingEvent(false);
+        }
+    };
+
+    const handleSaveFood = async (eventData) => {
+        setIsSavingEvent(true);
+        try {
+            const res = await fetch(backendUrlFoodEvents, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(eventData),
+            });
+            if (res.ok) {
+                setFoodModalVisible(false);
+                fetchEvents(); // Recargar inyecciones activas si hubo bolo
+            }
+        } catch (error) {
+            console.error('Error guardando comida:', error);
         } finally {
             setIsSavingEvent(false);
         }
@@ -453,7 +475,7 @@ const GlucoseScanner = () => {
 
                 {/* Botones de Acción Rápidos (Comida, Insulina, Ejercicio) */}
                 <View style={styles.actionRow}>
-                    <TouchableOpacity style={styles.actionButton}>
+                    <TouchableOpacity style={styles.actionButton} onPress={() => setFoodModalVisible(true)}>
                         <Image
                             source={require('./assets/apple.png')}
                             style={{ width: 50, height: 50, tintColor: '#4caf50' }}
@@ -489,6 +511,16 @@ const GlucoseScanner = () => {
                         visible={isInsulinModalVisible}
                         onClose={() => setInsulinModalVisible(false)}
                         onSave={handleSaveInsulin}
+                        userProfile={userProfile}
+                        isSaving={isSavingEvent}
+                    />
+                )}
+
+                {isFoodModalVisible && (
+                    <FoodModal
+                        visible={isFoodModalVisible}
+                        onClose={() => setFoodModalVisible(false)}
+                        onSave={handleSaveFood}
                         userProfile={userProfile}
                         isSaving={isSavingEvent}
                     />
