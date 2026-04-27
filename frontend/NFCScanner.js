@@ -9,12 +9,15 @@ import {
     Dimensions
 } from 'react-native';
 import NfcManager, { NfcTech } from 'react-native-nfc-manager';
-import Svg, { Path, Line, Text as SvgText } from 'react-native-svg';
+import Svg, { Path, Line, Text as SvgText, Circle, G } from 'react-native-svg';
 import * as d3Shape from 'd3-shape';
 import * as d3Scale from 'd3-scale';
-import { FontAwesome6, MaterialCommunityIcons } from '@expo/vector-icons';
+import { FontAwesome6, MaterialCommunityIcons, Ionicons, } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import InsulinModal from './InsulinModal';
+import FoodModal from './FoodModal';
+import ExerciseModal from './ExerciseModal';
+import ChatModal from './ChatModal';
 import { useFonts } from 'expo-font';
 
 
@@ -33,8 +36,18 @@ const GlucoseScanner = () => {
     // Modal Events State
     const [userProfile, setUserProfile] = useState(null);
     const [activeInsulins, setActiveInsulins] = useState([]);
+    const [foodEvents, setFoodEvents] = useState([]);
+    const [exerciseEvents, setExerciseEvents] = useState([]);
+
     const [isInsulinModalVisible, setInsulinModalVisible] = useState(false);
+    const [isFoodModalVisible, setFoodModalVisible] = useState(false);
+    const [isExerciseModalVisible, setExerciseModalVisible] = useState(false);
     const [isSavingEvent, setIsSavingEvent] = useState(false);
+
+    const [showFastInsulin, setShowFastInsulin] = useState(true);
+    const [showFood, setShowFood] = useState(true);
+    const [showExercise, setShowExercise] = useState(true);
+    const [isChatVisible, setChatVisible] = useState(false);
 
     const [fontsLoaded] = useFonts({
         'ArrowFont': require('./assets/arrow-font.ttf'),
@@ -45,6 +58,9 @@ const GlucoseScanner = () => {
     const backendUrlUpload = 'http://192.168.1.18:3000/api/glucose';
     const backendUrlProfile = 'http://192.168.1.18:3000/api/profile';
     const backendUrlInsulinEvents = 'http://192.168.1.18:3000/api/insulin-events';
+    const backendUrlFoodEvents = 'http://192.168.1.18:3000/api/food-events';
+    const backendUrlSportEvents = 'http://192.168.1.18:3000/api/exercise-events';
+    const backendUrlChat = 'http://192.168.1.18:3000';
 
     useEffect(() => {
         const initNfc = async () => {
@@ -112,13 +128,23 @@ const GlucoseScanner = () => {
         }
     };
 
-    const fetchEvents = async () => { // fetchInsulins
+    const fetchEvents = async () => {
         try {
-            const res = await fetch(backendUrlInsulinEvents + '?hours=24');
-            const data = await res.json();
-            setActiveInsulins(data);
+            const resIns = fetch(backendUrlInsulinEvents + '?hours=24');
+            const resFood = fetch(backendUrlFoodEvents + '?hours=24');
+            const resEx = fetch(backendUrlSportEvents + '?hours=24');
+
+            const [dataInsulin, dataFood, dataExercise] = await Promise.all([
+                resIns.then(r => r.json()),
+                resFood.then(r => r.json()),
+                resEx.then(r => r.json())
+            ]);
+
+            setActiveInsulins(dataInsulin);
+            setFoodEvents(dataFood);
+            setExerciseEvents(dataExercise);
         } catch (e) {
-            console.error('Error cargando eventos de insulina:', e);
+            console.error('Error cargando eventos:', e);
         }
     };
 
@@ -136,6 +162,43 @@ const GlucoseScanner = () => {
             }
         } catch (error) {
             console.error('Error guardando evento:', error);
+        } finally {
+            setIsSavingEvent(false);
+        }
+    };
+
+    const handleSaveFood = async (eventData) => {
+        setIsSavingEvent(true);
+        try {
+            const res = await fetch(backendUrlFoodEvents, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(eventData),
+            });
+            if (res.ok) {
+                setFoodModalVisible(false);
+                fetchEvents(); // Recargar inyecciones activas si hubo bolo
+            }
+        } catch (error) {
+            console.error('Error guardando comida:', error);
+        } finally {
+            setIsSavingEvent(false);
+        }
+    };
+
+    const handleSaveExercise = async (eventData) => {
+        setIsSavingEvent(true);
+        try {
+            const res = await fetch(backendUrlSportEvents, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(eventData),
+            });
+            if (res.ok) {
+                setExerciseModalVisible(false);
+            }
+        } catch (error) {
+            console.error('Error guardando deporte:', error);
         } finally {
             setIsSavingEvent(false);
         }
@@ -284,7 +347,7 @@ const GlucoseScanner = () => {
                 )}
 
                 {/* Insulinas Rápidas Activas (Fondo Rosado apilado con línea de Pico) */}
-                {activeInsulins.filter(e => e.insulin_type === 'fast').map(event => {
+                {showFastInsulin && activeInsulins.filter(e => e.insulin_type === 'fast').map(event => {
                     const eventTimeMs = new Date(event.event_time).getTime();
                     const durationMs = (event.duration_hours || 4) * 60 * 60 * 1000;
                     const endTimeMs = eventTimeMs + durationMs;
@@ -316,6 +379,59 @@ const GlucoseScanner = () => {
                             fill="rgba(255, 105, 180, 0.3)"
                         />,
                         peakLine
+                    ];
+                })}
+
+                {/* Deporte Activo (Fondo Naranja translúcido) */}
+                {showExercise && exerciseEvents.map(event => {
+                    const eventTimeMs = new Date(event.start_time).getTime();
+                    const durationMs = event.duration_minutes * 60 * 1000;
+                    const endTimeMs = eventTimeMs + durationMs;
+
+                    if (endTimeMs < minTime || eventTimeMs > maxTime) return null;
+                    const startX = scaleX(eventTimeMs);
+                    const endX = scaleX(endTimeMs);
+
+                    let dangerLine = null;
+                    if (event.danger_window_hours) {
+                        const dangerEndMs = eventTimeMs + (parseFloat(event.danger_window_hours) * 60 * 60 * 1000);
+                        if (dangerEndMs > minTime && eventTimeMs < maxTime) {
+                            const dangerEndX = scaleX(dangerEndMs);
+                            dangerLine = (
+                                <Line
+                                    key={`sport-danger-${event.id}`}
+                                    x1={endX} y1={GRAPH_HEIGHT - 35}
+                                    x2={dangerEndX} y2={GRAPH_HEIGHT - 35}
+                                    stroke="#ff9800" strokeWidth="2" strokeDasharray="4 4"
+                                />
+                            );
+                        }
+                    }
+
+                    return (
+                        <G key={`sport-${event.id}`}>
+                            <Path
+                                d={`M ${startX} 40 L ${endX} 40 L ${endX} ${GRAPH_HEIGHT - 30} L ${startX} ${GRAPH_HEIGHT - 30} Z`}
+                                fill="rgba(255, 152, 0, 0.3)"
+                            />
+                            {dangerLine}
+                        </G>
+                    );
+                })}
+
+                {/* Comidas (Punto verde + Línea vertical) */}
+                {showFood && foodEvents.map(event => {
+                    const eventTimeMs = new Date(event.event_time).getTime();
+                    if (eventTimeMs < minTime || eventTimeMs > maxTime) return null;
+                    const posX = scaleX(eventTimeMs);
+                    const posY = GRAPH_HEIGHT - 30;
+
+                    return [
+                        <Line key={`food-line-${event.id}`} x1={posX} y1={40} x2={posX} y2={posY} stroke="#4caf50" strokeWidth="1" strokeDasharray="3 3" />,
+                        <Circle key={`food-circle-${event.id}`} cx={posX} cy={50} r="11" fill="#4caf50" />,
+                        <SvgText key={`food-text-${event.id}`} x={posX - 3} y={52} fontSize="8" fill="#fff" textAnchor="middle" fontWeight="bold">
+                            {Math.round(event.carbs_g)}g
+                        </SvgText>
                     ];
                 })}
 
@@ -384,20 +500,29 @@ const GlucoseScanner = () => {
 
     const renderBasalCountdown = () => {
         const latestSlow = activeInsulins.find(e => e.insulin_type === 'slow');
-        if (!latestSlow) return null;
 
-        const eventTimeMs = new Date(latestSlow.event_time).getTime();
-        const durationMs = (latestSlow.duration_hours || 24) * 60 * 60 * 1000;
-        const endTimeMs = eventTimeMs + durationMs;
-        const nowMs = new Date().getTime();
+        let remainingHours = '--';
+        let isInactive = true;
 
-        if (nowMs >= endTimeMs) return null;
+        if (latestSlow) {
+            const eventTimeMs = new Date(latestSlow.event_time).getTime();
+            const durationMs = (latestSlow.duration_hours || 24) * 60 * 60 * 1000;
+            const endTimeMs = eventTimeMs + durationMs;
+            const nowMs = new Date().getTime();
 
-        const remainingHours = ((endTimeMs - nowMs) / (1000 * 60 * 60)).toFixed(1);
+            if (nowMs < endTimeMs) {
+                remainingHours = ((endTimeMs - nowMs) / (1000 * 60 * 60)).toFixed(1) + 'h';
+                isInactive = false;
+            }
+        }
 
         return (
-            <View style={styles.basalBadge}>
-                <Text style={styles.basalText}>Basal restante: {remainingHours}h</Text>
+            <View style={styles.basalRowContainer}>
+                <View style={[styles.basalBadge, isInactive && styles.basalBadgeInactive]}>
+                    <Text style={[styles.basalText, isInactive && styles.basalTextInactive]}>
+                        Basal restante: {remainingHours}
+                    </Text>
+                </View>
             </View>
         );
     };
@@ -429,7 +554,7 @@ const GlucoseScanner = () => {
 
                 {/* Botones de Acción Rápidos (Comida, Insulina, Ejercicio) */}
                 <View style={styles.actionRow}>
-                    <TouchableOpacity style={styles.actionButton}>
+                    <TouchableOpacity style={styles.actionButton} onPress={() => setFoodModalVisible(true)}>
                         <Image
                             source={require('./assets/apple.png')}
                             style={{ width: 50, height: 50, tintColor: '#4caf50' }}
@@ -445,12 +570,39 @@ const GlucoseScanner = () => {
                         <Text style={styles.actionLabel}>Insulina</Text>
                     </TouchableOpacity>
 
-                    <TouchableOpacity style={styles.actionButton}>
+                    <TouchableOpacity style={styles.actionButton} onPress={() => setExerciseModalVisible(true)}>
                         <Image
                             source={require('./assets/bike.png')}
                             style={{ width: 50, height: 50, tintColor: '#ff9800' }}
                         />
-                        <Text style={styles.actionLabel}>Ejercicio</Text>
+                        <Text style={styles.actionLabel}>Deporte</Text>
+                    </TouchableOpacity>
+                </View>
+
+                {/* Filtros de Capas de D3 (Chips) */}
+                <View style={styles.filterRow}>
+                    <TouchableOpacity
+                        style={[styles.chip, showFood && styles.chipActiveFood]}
+                        onPress={() => setShowFood(!showFood)}
+                    >
+                        <MaterialCommunityIcons name={showFood ? "check" : "close"} size={16} color={showFood ? "#fff" : "#9e9e9e"} />
+                        <Text style={[styles.chipText, showFood && { color: '#fff' }]}>Comida</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        style={[styles.chip, showFastInsulin && styles.chipActiveInsulin]}
+                        onPress={() => { setShowFastInsulin(!showFastInsulin); console.log(showFastInsulin) }}
+                    >
+                        <MaterialCommunityIcons name={showFastInsulin ? "check" : "close"} size={16} color={showFastInsulin ? "#fff" : "#9e9e9e"} />
+                        <Text style={[styles.chipText, showFastInsulin && { color: '#fff' }]}>Bolos</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        style={[styles.chip, showExercise && styles.chipActiveExercise]}
+                        onPress={() => setShowExercise(!showExercise)}
+                    >
+                        <MaterialCommunityIcons name={showExercise ? "check" : "close"} size={16} color={showExercise ? "#fff" : "#9e9e9e"} />
+                        <Text style={[styles.chipText, showExercise && { color: '#fff' }]}>Deporte</Text>
                     </TouchableOpacity>
                 </View>
 
@@ -467,6 +619,43 @@ const GlucoseScanner = () => {
                         onSave={handleSaveInsulin}
                         userProfile={userProfile}
                         isSaving={isSavingEvent}
+                    />
+                )}
+
+                {isFoodModalVisible && (
+                    <FoodModal
+                        visible={isFoodModalVisible}
+                        onClose={() => setFoodModalVisible(false)}
+                        onSave={handleSaveFood}
+                        userProfile={userProfile}
+                        isSaving={isSavingEvent}
+                    />
+                )}
+
+                {isExerciseModalVisible && (
+                    <ExerciseModal
+                        visible={isExerciseModalVisible}
+                        onClose={() => setExerciseModalVisible(false)}
+                        onSave={handleSaveExercise}
+                        isSaving={isSavingEvent}
+                        backendUrl={backendUrlSportEvents}
+                    />
+                )}
+
+                {/* Botón Flotante del IA Chat */}
+                <TouchableOpacity
+                    style={styles.fabChat}
+                    onPress={() => setChatVisible(true)}
+                >
+                    <Ionicons name="sparkles" size={25} color="#fff" />
+                </TouchableOpacity>
+
+                {/* Modal del Chat IA */}
+                {isChatVisible && (
+                    <ChatModal
+                        visible={isChatVisible}
+                        onClose={() => setChatVisible(false)}
+                        backendUrl={backendUrlChat}
                     />
                 )}
 
@@ -510,6 +699,8 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         marginVertical: 20,
         paddingHorizontal: 20,
+        zIndex: 10,
+        elevation: 10,
     },
     actionButton: {
         alignItems: 'center',
@@ -565,19 +756,88 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         marginTop: 20,
     },
-    basalBadge: {
+    basalRowContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
         marginTop: 5,
+    },
+    basalBadge: {
         backgroundColor: '#f3e5f5', // Morado muy claro
         paddingVertical: 6,
         paddingHorizontal: 16,
         borderRadius: 20,
         borderWidth: 1,
         borderColor: '#e1bee7',
+        marginRight: 10,
+    },
+    basalBadgeInactive: {
+        backgroundColor: '#f5f5f5',
+        borderColor: '#e0e0e0',
     },
     basalText: {
         color: '#9c27b0',
         fontSize: 13,
         fontWeight: '700',
+    },
+    basalTextInactive: {
+        color: '#9e9e9e',
+    },
+    filterRow: {
+        flexDirection: 'row',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginTop: 10,
+        marginBottom: 5,
+        zIndex: 20,
+        elevation: 20,
+        gap: 18, // gap requires react-native >= 0.71, if problem, we will use margins
+    },
+    chip: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 6,
+        paddingHorizontal: 12,
+        backgroundColor: '#f5f5f5',
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: '#e0e0e0',
+        marginHorizontal: 5,
+    },
+    chipText: {
+        marginLeft: 4,
+        fontSize: 12,
+        fontWeight: '600',
+        color: '#9e9e9e',
+    },
+    chipActiveInsulin: {
+        backgroundColor: '#d86c90ff',
+        borderColor: '#d86c90ff',
+    },
+    chipActiveFood: {
+        backgroundColor: '#65d169ff',
+        borderColor: '#65d169ff',
+    },
+    chipActiveExercise: {
+        backgroundColor: '#ffba53ff',
+        borderColor: '#ffba53ff',
+    },
+    fabChat: {
+        position: 'absolute',
+        top: 160,
+        left: 30,
+        width: 60,
+        height: 60,
+        borderRadius: 33,
+        backgroundColor: '#1a237e',
+        justifyContent: 'center',
+        alignItems: 'center',
+        elevation: 8,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 5,
+        zIndex: 100,
     },
 });
 
