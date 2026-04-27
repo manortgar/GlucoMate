@@ -12,11 +12,12 @@ import NfcManager, { NfcTech } from 'react-native-nfc-manager';
 import Svg, { Path, Line, Text as SvgText, Circle, G } from 'react-native-svg';
 import * as d3Shape from 'd3-shape';
 import * as d3Scale from 'd3-scale';
-import { FontAwesome6, MaterialCommunityIcons } from '@expo/vector-icons';
+import { FontAwesome6, MaterialCommunityIcons, Ionicons, } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import InsulinModal from './InsulinModal';
 import FoodModal from './FoodModal';
 import ExerciseModal from './ExerciseModal';
+import ChatModal from './ChatModal';
 import { useFonts } from 'expo-font';
 
 
@@ -46,18 +47,20 @@ const GlucoseScanner = () => {
     const [showFastInsulin, setShowFastInsulin] = useState(true);
     const [showFood, setShowFood] = useState(true);
     const [showExercise, setShowExercise] = useState(true);
+    const [isChatVisible, setChatVisible] = useState(false);
 
     const [fontsLoaded] = useFonts({
         'ArrowFont': require('./assets/arrow-font.ttf'),
     });
 
     // IP DEL BACKEND (Actualizar si cambia)
-    const backendUrlHistory = 'http://192.168.1.24:3000/api/glucose/history';
-    const backendUrlUpload = 'http://192.168.1.24:3000/api/glucose';
-    const backendUrlProfile = 'http://192.168.1.24:3000/api/profile';
-    const backendUrlInsulinEvents = 'http://192.168.1.24:3000/api/insulin-events';
-    const backendUrlFoodEvents = 'http://192.168.1.24:3000/api/food-events';
-    const backendUrlSportEvents = 'http://192.168.1.24:3000/api/exercise-events';
+    const backendUrlHistory = 'http://192.168.1.18:3000/api/glucose/history';
+    const backendUrlUpload = 'http://192.168.1.18:3000/api/glucose';
+    const backendUrlProfile = 'http://192.168.1.18:3000/api/profile';
+    const backendUrlInsulinEvents = 'http://192.168.1.18:3000/api/insulin-events';
+    const backendUrlFoodEvents = 'http://192.168.1.18:3000/api/food-events';
+    const backendUrlSportEvents = 'http://192.168.1.18:3000/api/exercise-events';
+    const backendUrlChat = 'http://192.168.1.18:3000';
 
     useEffect(() => {
         const initNfc = async () => {
@@ -639,6 +642,23 @@ const GlucoseScanner = () => {
                     />
                 )}
 
+                {/* Botón Flotante del IA Chat */}
+                <TouchableOpacity
+                    style={styles.fabChat}
+                    onPress={() => setChatVisible(true)}
+                >
+                    <Ionicons name="sparkles" size={25} color="#fff" />
+                </TouchableOpacity>
+
+                {/* Modal del Chat IA */}
+                {isChatVisible && (
+                    <ChatModal
+                        visible={isChatVisible}
+                        onClose={() => setChatVisible(false)}
+                        backendUrl={backendUrlChat}
+                    />
+                )}
+
             </View>
         </SafeAreaView >
     );
@@ -801,6 +821,23 @@ const styles = StyleSheet.create({
     chipActiveExercise: {
         backgroundColor: '#ffba53ff',
         borderColor: '#ffba53ff',
+    },
+    fabChat: {
+        position: 'absolute',
+        top: 160,
+        left: 30,
+        width: 60,
+        height: 60,
+        borderRadius: 33,
+        backgroundColor: '#1a237e',
+        justifyContent: 'center',
+        alignItems: 'center',
+        elevation: 8,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 5,
+        zIndex: 100,
     },
 });
 

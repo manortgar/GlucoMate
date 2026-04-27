@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 
-const BACKEND_URL = 'http://192.168.1.24:3000';
+const BACKEND_URL = 'http://192.168.1.18:3000';
 
 const MEAL_LABELS = [
     { key: 'icr_breakfast', label: '🌅 Desayuno' },
