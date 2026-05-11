@@ -54,13 +54,13 @@ const GlucoseScanner = () => {
     });
 
     // IP DEL BACKEND (Actualizar si cambia)
-    const backendUrlHistory = 'http://192.168.1.18:3000/api/glucose/history';
-    const backendUrlUpload = 'http://192.168.1.18:3000/api/glucose';
-    const backendUrlProfile = 'http://192.168.1.18:3000/api/profile';
-    const backendUrlInsulinEvents = 'http://192.168.1.18:3000/api/insulin-events';
-    const backendUrlFoodEvents = 'http://192.168.1.18:3000/api/food-events';
-    const backendUrlSportEvents = 'http://192.168.1.18:3000/api/exercise-events';
-    const backendUrlChat = 'http://192.168.1.18:3000';
+    const backendUrlHistory = 'http://192.168.0.51:3000/api/glucose/history';
+    const backendUrlUpload = 'http://192.168.0.51:3000/api/glucose';
+    const backendUrlProfile = 'http://192.168.0.51:3000/api/profile';
+    const backendUrlInsulinEvents = 'http://192.168.0.51:3000/api/insulin-events';
+    const backendUrlFoodEvents = 'http://192.168.0.51:3000/api/food-events';
+    const backendUrlSportEvents = 'http://192.168.0.51:3000/api/exercise-events';
+    const backendUrlChat = 'http://192.168.0.51:3000';
 
     useEffect(() => {
         const initNfc = async () => {
@@ -196,6 +196,7 @@ const GlucoseScanner = () => {
             });
             if (res.ok) {
                 setExerciseModalVisible(false);
+                fetchEvents();
             }
         } catch (error) {
             console.error('Error guardando deporte:', error);

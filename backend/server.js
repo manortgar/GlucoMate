@@ -2,10 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const db = require('./db');
-const { GoogleGenAI } = require('@google/genai');
-
-// Inicializar cliente de Google AI con la API KEY extraída del entorno (.env)
-const ai = process.env.GEMINI_API_KEY ? new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY }) : null;
+// Eliminamos la importación de Gemini ya que usaremos Groq de forma nativa con 'fetch'
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -339,8 +336,8 @@ app.post('/api/chat', async (req, res) => {
 
 
     try {
-        if (!ai) {
-            return res.status(500).json({ error: 'GEMINI_API_KEY no detectada. Por favor configúrala en el backend.' });
+        if (!process.env.GROQ_API_KEY) {
+            return res.status(500).json({ error: 'GROQ_API_KEY no detectada. Por favor configúrala en tu archivo .env' });
         }
 
         const { message } = req.body;
@@ -416,7 +413,7 @@ app.post('/api/chat', async (req, res) => {
         })();
 
         // 3. SYSTEM PROMPT
-        const sysPrompt = `Eres GlucoMate AI, asistente de apoyo para diabetes. Responde siempre en español y de forma concisa.
+        const sysPrompt = `Eres GlucoMate AI, asistente de apoyo para diabetes. Responde siempre en español y de forma concisa, identifica el mensaje y solo responde exclusivamente si es sobre diabetes o temas relacionados con ella, para cualquier otra cosa responde que no puedes ayudarle con eso, no escibas un parrafo muy largo.
 
 ## DATOS DEL USUARIO (tiempo real)
 - Glucosa: ${g.glucose_value ?? 'desconocida'} mg/dL | Tendencia: ${g.trend ?? 'N/A'}
@@ -425,10 +422,10 @@ app.post('/api/chat', async (req, res) => {
 ${iob > 1 ? `- ⚠️ IOB activo: ${iob.toFixed(1)} UI — ya hay insulina circulando, tenlo en cuenta.` : ''}
 
 ## CÓMO CALCULAR INSULINA PARA UNA COMIDA
-1. Identifica los gramos de HC que menciona el usuario.
+1. Identifica la comida indicada, ten en cuenta SOLO los gramos de hidratos de carbono que tiene cada alimento, sumalo y guardalo para hacer el calculo
 2. Si no está claro a qué comida se refiere (desayuno/almuerzo/cena), pregúntale antes de calcular.
-3. Fórmula: unidades = (gramos de HC ÷ 10) × ICR correspondiente.
-4. Muestra siempre el cálculo paso a paso con valores reales.
+3. Fórmula: unidades = (gramos de HC calculados ÷ 10) × ICR correspondiente.
+4. Muestra siempre el cálculo paso a paso con valores reales de la forma mas resumida posible.
 ${maxReduction > 0 ? `5. Aplica reducción por deporte: resta un ${maxReduction}% al resultado y explícalo.` : ''}
 ${anaerobicWarn ? `5. No reduzcas el bolo, pero avisa de riesgo de bajada por deporte anaeróbico reciente.` : ''}
 
@@ -443,35 +440,52 @@ ${sportSection}
 ## AVISO OBLIGATORIO — incluye esto AL INICIO de cada respuesta, textualmente:
 "⚠️ Soy una IA de apoyo, no un médico. Esta sugerencia no reemplaza el criterio clínico."`;
 
-        // 4. LLAMAR A GEMINI (Con sistema de reintento para el error 503)
-        let response;
+        // 4. LLAMAR A GROQ (Llama 3) de forma nativa sin instalar librerías extra
+        let responseText;
         let retries = 3;
         let success = false;
 
         while (retries > 0 && !success) {
             try {
-                response = await ai.models.generateContent({
-                    model: 'gemini-2.0-flash',
-                    contents: [{ role: 'user', parts: [{ text: message }] }],
-                    config: {
-                        systemInstruction: sysPrompt,
-                        temperature: 0.2,
+                const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
+                        'Content-Type': 'application/json'
                     },
+                    body: JSON.stringify({
+                        model: 'llama-3.3-70b-versatile', // Modelo actual y rápido de Meta en Groq
+                        messages: [
+                            { role: 'system', content: sysPrompt },
+                            { role: 'user', content: message }
+                        ],
+                        temperature: 0.2
+                    })
                 });
+
+                if (!groqRes.ok) {
+                    const errBody = await groqRes.text();
+                    const err = new Error(`Error de Groq: ${errBody}`);
+                    err.status = groqRes.status;
+                    throw err;
+                }
+
+                const data = await groqRes.json();
+                responseText = data.choices[0].message.content;
                 success = true;
             } catch (err) {
                 if ((err.status === 503 || err.status === 429) && retries > 1) {
                     const errorMsg = err.status === 429 ? "Límite de peticiones (Error 429)" : "Servidor saturado (Error 503)";
-                    console.warn(`[Gemini AI] ${errorMsg}. Reintentando en 5s... (Quedan ${retries - 1} intentos)`);
+                    console.warn(`[Groq AI] ${errorMsg}. Reintentando en 3s... (Quedan ${retries - 1} intentos)`);
                     retries--;
-                    await new Promise(resolve => setTimeout(resolve, 5000)); // Espera 5 segundos antes de reintentar
+                    await new Promise(resolve => setTimeout(resolve, 3000));
                 } else {
-                    throw err; // Lanza el error si no es 503/429 o si se agotaron los intentos
+                    throw err;
                 }
             }
         }
 
-        res.json({ reply: response.text });
+        res.json({ reply: responseText });
 
     } catch (error) {
         console.error('Error en el chat de IA:', error);
