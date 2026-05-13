@@ -1,0 +1,143 @@
+% ============================================================
+%  CAPÍTULO 1 — INTRODUCCIÓN
+%  TFG: GlucoMate — Aplicación de Monitorización Continua de Glucosa
+%  Ingeniería de Software
+% ============================================================
+
+\chapter{Introducción}
+\label{cap:introduccion}
+
+\section{Contexto}
+\label{sec:contexto}
+
+La diabetes mellitus tipo 1 (DM1) es una enfermedad crónica autoinmune en la que el
+páncreas pierde de forma irreversible la capacidad de producir insulina, la hormona
+responsable de regular la glucosa en sangre. Quienes la padecen deben sustituir
+manualmente esa función pancreática: midiendo su glucosa varias veces al día, calculando
+las dosis de insulina que necesitan antes de cada comida y tomando decisiones clínicas en
+tiempo real a partir de esos datos. Un error en ese proceso puede desencadenar desde
+una hipoglucemia leve —con síntomas de mareo, sudoración y confusión— hasta situaciones
+potencialmente mortales como un coma diabético o una cetoacidosis.
+
+\section{Motivación}
+\label{sec:motivación}
+La motivación de este proyecto es \negritas{profundamente personal} y nace de mi propia experiencia diaria conviviendo con la diabetes. Como paciente, identifico de primera mano las carencias de las soluciones actuales: mientras que aplicaciones oficiales como la del sistema FreeStyle Libre se limitan a una captura de datos básica y lineal, por otro lado, las alternativas existentes en el mercado suelen presentar barreras de acceso debido a su coste o carecen de un equilibrio entre simplicidad, usabilidad y funcionalidad, factores esenciales para pacientes con pocos conocimientos técnicos o recién diagnosticados. Esta realidad genera una frustración constante, ya que nos encontramos con herramientas que registran cifras, pero que no ofrecen un soporte real ante la incertidumbre del día a día.
+
+Como usuario y paciente directamente afectado, mi impulso es crear la herramienta que considero que falta en el mercado: una plataforma que combine simplicidad, usabilidad y funcionalidad máxima. Mi objetivo es que cualquier persona con diabetes, independientemente de sus conocimientos tecnológicos o médicos, pueda entender su metabolismo y gestionar su enfermedad sin la carga cognitiva que supone interpretar datos aislados.
+
+Desde \negritas{la perspectiva de la ingeniería}, el reto que me he propuesto es transformar esta necesidad vital en una solución tecnológica integral "Full Stack". El proyecto supone para mí un desafío de integración multidisciplinar: desde la interacción directa con el hardware del móvil mediante el chip NFC, hasta el diseño de una arquitectura completa que incluya Frontend, Backend y gestión de bases de datos, culminando con la integración de Inteligencia Artificial como motor de ayuda pedagógica. En definitiva, mi motivación reside en poner la ingeniería al servicio del paciente, facilitando una gestión de la diabetes más humana, inteligente y, sobre todo, accesible.
+
+% ──────────────────────────────────────────────────────────────
+\section{Objetivos del proyecto}
+\label{sec:objetivos}
+
+El objetivo general del proyecto es diseñar, implementar y validar \textbf{GlucoMate},
+una aplicación móvil Android para la monitorización continua de glucosa, orientada a
+pacientes con diabetes mellitus tipo 1 que utilizan el sensor Abbott Freestyle Libre 2
+Plus.
+
+Para alcanzar ese objetivo general se definen los siguientes \textbf{objetivos
+específicos}:
+
+\begin{enumerate}
+    \item Integrar la lectura de datos del sensor Freestyle Libre 2 Plus en una
+          aplicación React Native mediante el protocolo NFC, utilizando la aplicación
+          Juggluco como puente de descifrado de la señal Bluetooth Low Energy (BLE)
+          del sensor.
+
+    \item Implementar un backend REST con Node.js y Express que persista las lecturas
+          de glucosa y los eventos clínicos (insulina, comidas y ejercicio) en una
+          base de datos PostgreSQL.
+
+    \item Desarrollar una interfaz gráfica avanzada que muestre la curva histórica de
+          glucosa de las últimas doce horas, con superposición de eventos clínicos,
+          mediante la librería D3.js renderizada sobre SVG nativo en React Native.
+
+    \item Crear un agente de inteligencia artificial,
+          conociendo el estado glucémico actual del usuario, su
+          insulina activa (IOB), su perfil de tratamiento y los deportes practicados
+          recientemente, sea capaz de calcular dosis de insulina para una comida y
+          ofrecer recomendaciones clínicas personalizadas.
+
+    \item Diseñar una pantalla de perfil de usuario que permita configurar los
+          parámetros individuales de tratamiento (insulinas, ratios ICR por franja
+          horaria y factor de sensibilidad a la insulina FSI) que el agente de IA
+          utiliza como contexto.
+
+    \item Validar el sistema de forma integral con un sensor real Freestyle Libre 2
+          Plus en un dispositivo Android físico.
+\end{enumerate}
+
+% ──────────────────────────────────────────────────────────────
+\section{Alcance y limitaciones}
+\label{sec:alcance}
+
+GlucoMate es una aplicación de apoyo al autocontrol de la diabetes. No es un
+producto sanitario certificado según el Reglamento Europeo de Productos Sanitarios
+(MDR 2017/745) ni pretende serlo. Todas las recomendaciones que genera el agente de IA
+se muestran acompañadas de un aviso explícito que indica que no reemplazan el criterio
+clínico de un profesional de la salud.
+
+En cuanto al alcance técnico, el proyecto cubre:
+
+\begin{itemize}
+    \item La capa móvil (frontend) completa: interfaz de usuario, lógica de presentación,
+          comunicación con el backend y renderizado de la gráfica.
+    \item La capa de servidor (backend): API REST, acceso a la base de datos y
+          comunicación con la API de Groq para inferencia del modelo
+          \texttt{llama-3.3-70b-versatile}.
+    \item La base de datos relacional: esquema completo de tablas para glucosa, perfil
+          de usuario, eventos de insulina, comidas y ejercicio.
+\end{itemize}
+
+Quedan fuera del alcance de esta versión:
+
+\begin{itemize}
+    \item El soporte para dispositivos iOS, dado que Apple restringe el acceso a NFC en
+          modo de escritura y lectura ISO 15693 a aplicaciones certificadas por Abbott.
+    \item La comunicación directa con el sensor sin Juggluco: en el estado actual de la
+          ingeniería inversa del protocolo BLE del Freestyle Libre 2 Plus, el descifrado
+          del enlace cifrado requiere el uso de esta aplicación intermediaria.
+    \item Funcionalidades avanzadas como el cálculo automatizado de HbA1c estimada,
+          el Tiempo en Rango (TiR) o la sincronización con la nube, identificadas como
+          trabajo futuro.
+
+\end{itemize}
+
+% ──────────────────────────────────────────────────────────────
+\section{Estructura del documento}
+\label{sec:estructura}
+
+La presente memoria se organiza en los siguientes capítulos:
+
+\begin{description}
+    \item[\textbf{Capítulo 2 — Estado del Arte.}] Analiza el contexto médico y tecnológico
+    del proyecto: la diabetes tipo 1, los sistemas de monitorización continua de glucosa
+    comerciales, el sensor Abbott Freestyle Libre 2 Plus, los proyectos de código abierto
+    que han explorado la ingeniería inversa de sus protocolos (xDrip+, LibreMonitor,
+    Juggluco) y las soluciones de inteligencia artificial aplicadas a la gestión de la
+    diabetes.
+
+    \item[\textbf{Capítulo 3 — Análisis del Problema.}] Recoge los requisitos funcionales
+    y no funcionales del sistema, los actores implicados y los casos de uso principales,
+    así como el modelo de dominio del problema.
+
+    \item[\textbf{Capítulo 4 — Metodología de Desarrollo.}] Describe el proceso de trabajo
+    seguido durante el proyecto: metodología ágil, control de versiones con Git y GitHub,
+    uso de Conventional Commits y las buenas prácticas de desarrollo aplicadas.
+
+    \item[\textbf{Capítulo 5 — Diseño de la Solución.}] Presenta la arquitectura general
+    del sistema, el diseño de cada módulo, el esquema de la base de datos y los diagramas
+    de componentes, secuencia y flujo de datos.
+
+
+    \item[\textbf{Capítulo 6— Pruebas.}] Describe la estrategia de validación del sistema
+    y los resultados obtenidos con el sensor real en un dispositivo Android físico.
+
+    \item[\textbf{Capítulo 7 — Conclusiones y Trabajo Futuro.}] Evalúa el grado de
+    cumplimiento de los objetivos, extrae las lecciones aprendidas y propone las líneas
+    de mejora para versiones futuras.
+
+    \item[\textbf{Bibliografía y Anexos.}] Referencias utilizadas a lo largo del documento
+    y material complementario (fragmentos de código anotados, glosario).
+\end{description}

@@ -1,0 +1,71 @@
+\chapter{Conclusiones y trabajo futuro}\label{cap:conclusiones}
+
+\section{Conclusiones}
+
+GlucoMate demuestra que es posible construir, en el contexto de un Trabajo de Fin de
+Grado, un prototipo funcional capaz de integrar captura de glucosa, registro clínico,
+persistencia estructurada y asistencia contextual en una única aplicación móvil. La
+aportación principal del proyecto no reside únicamente en haber desarrollado una interfaz
+atractiva, sino en haber conectado varias capas tecnológicas heterogéneas en un flujo
+coherente: sensor, aplicación puente, frontend móvil, backend, base de datos y agente de
+IA.
+
+Desde el punto de vista de la ingeniería del software, el proyecto ha permitido abordar
+problemas reales de arquitectura, modularidad, comunicación cliente-servidor y gestión de
+estado en un dominio especialmente exigente por su sensibilidad clínica. Además, la
+decisión de separar claramente frontend y backend ha resultado adecuada para proteger
+credenciales, estructurar la lógica de negocio y mantener una base razonable para futuras
+evoluciones.
+
+También es relevante el valor práctico del sistema desarrollado. Frente a soluciones que
+se limitan a mostrar lecturas de glucosa aisladas, GlucoMate propone una visión más rica
+del problema: relaciona glucosa, insulina, alimentación y actividad deportiva, y utiliza
+ese contexto para ofrecer apoyo interpretativo al usuario. Aunque la aplicación no pretende
+sustituir el criterio médico ni alcanzar el nivel de un producto sanitario certificado, sí
+evidencia el potencial de las herramientas software personalizadas en la gestión cotidiana
+de la diabetes tipo 1.
+
+\section{Objetivos alcanzados}
+
+
+Se cumplieron todos los objetivos planteados al inicio del proyecto. Se integró correctamente la lectura de datos del sensor mediante NFC, utilizando \textit{Juggluco} como puente para el descifrado de la señal BLE. Además, se desarrolló un backend REST con Node.js, Express y PostgreSQL para la gestión y almacenamiento de lecturas glucémicas y eventos clínicos.
+
+Asimismo, se implementó una interfaz gráfica capaz de representar de forma clara la evolución histórica de la glucosa junto con los eventos clínicos asociados. También se desarrolló un agente de inteligencia artificial basado en \textit{llama-3.3-70b-versatile}, capaz de ofrecer recomendaciones personalizadas y cálculos orientativos de dosis de insulina en función del contexto clínico del usuario.
+
+Por otro lado, se diseñó una pantalla de perfil que permitió configurar los parámetros individuales de tratamiento, haciendo posible una mayor personalización del sistema.
+
+Finalmente, la validación con un sensor real en un dispositivo Android físico confirmó el correcto funcionamiento de la solución desarrollada.
+
+En conclusión, este trabajo demostró la viabilidad de combinar tecnologías móviles, sistemas backend e inteligencia artificial para crear herramientas de apoyo al control glucémico, sentando una base sólida para futuras mejoras y ampliaciones del sistema.
+\section{Líneas de trabajo futuro}
+
+Las principales líneas de evolución previstas para GlucoMate incluyen la ampliación a
+iOS, la mejora de los algoritmos de recomendación mediante modelos de IA más avanzados y
+la migración desde una arquitectura local a un backend desplegado en la nube.
+
+Además de estas líneas generales, existen varias mejoras concretas especialmente
+interesantes para una continuación del proyecto:
+
+\begin{itemize}
+    \item \textbf{Despliegue en la nube:} sustituir la IP fija en red local por una
+          infraestructura estable, segura y accesible desde distintos entornos.
+    \item \textbf{Ampliación de métricas:} incorporar indicadores como Tiempo en Rango,
+          glucosa media estimada o métricas agregadas por franjas temporales.
+    \item \textbf{Mejora del agente de IA:} enriquecer el contexto, refinar los prompts y
+          estudiar mecanismos de validación o trazabilidad de recomendaciones. Correr un modelo propio entrenado con datos específicos de diabetes en una máquina o servidor privado.
+    \item \textbf{Mayor automatización de pruebas:} añadir pruebas de backend, validaciones
+          de API y mecanismos de verificación más sistemáticos.
+    \item \textbf{Integración multiplataforma:} explorar las limitaciones reales de iOS y
+          estudiar alternativas técnicas compatibles con el ecosistema Apple.
+     \item \textbf{Rentabilización mediante patrocinios:} estudiar un modelo de
+          sostenibilidad económica basado en acuerdos con fabricantes de sensores
+          compatibles, actualmente Abbott, y con compañías farmacéuticas relacionadas con
+          la producción de insulinas, como Novo Nordisk, Eli Lilly o Sanofi. Este enfoque
+          permitiría financiar la evolución técnica, el mantenimiento de la infraestructura
+          y posibles procesos de validación, manteniendo como principio fundamental que el
+          usuario final no tuviera que asumir ningún coste por utilizar la aplicación.
+\end{itemize}
+
+En conjunto, estas líneas muestran que el trabajo realizado no cierra el proyecto, pero sí
+establece una base sólida y realista sobre la que seguir construyendo una herramienta cada
+vez más útil, robusta y cercana a un entorno de uso real y lo más importante, ayudando cada día mas a los millones de diabeticos que necesitan una ayuda en su tratamiento diario.

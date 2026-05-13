@@ -1,0 +1,72 @@
+\chapter{Pruebas}\label{cap:pruebas}
+
+\section{Estrategia de pruebas}
+
+La validación de este sistema debía combinar pruebas funcionales manuales, verificación del
+flujo de datos entre frontend y backend y comprobaciones de usabilidad sobre la interfaz.
+Dado que el proyecto depende de hardware real, la estrategia de pruebas debe contemplar
+tanto escenarios controlados de laboratorio como pruebas de uso cotidiano.
+
+En un sistema como GlucoMate no bastaba con verificar funciones aisladas. Es necesario
+comprobar una cadena completa que incluye hardware, conectividad local, backend, base de
+datos y renderizado en interfaz. Por ello, la estrategia más realista para este TFG es la
+de prueba funcional de integración, complementada con comprobaciones manuales sobre cada
+módulo: lectura de glucosa, registro de eventos, persistencia y asistencia por IA.
+
+\section{Pruebas funcionales con sensor real Freestyle Libre}
+
+Las pruebas funcionales más relevantes son las realizadas con un sensor real y un teléfono
+Android con soporte NFC. La secuencia de validación adecuada para este proyecto puede
+resumirse en los siguientes pasos:
+
+\begin{enumerate}
+    \item Abrir la aplicación móvil y verificar la carga del histórico, el perfil y los
+          eventos clínicos recientes. \textbf{EXITOSA}
+    \item Activar el flujo de escaneo NFC, aproximar el teléfono al sensor y que se detecte comprobando así el uso del chip NFC. \textbf{EXITOSA}
+    \item Confirmar que el frontend obtiene una lectura válida desde el puente Juggluco. \textbf{EXITOSA}
+    \item Verificar que la lectura se almacena correctamente en el backend y aparece en el
+          histórico de 12 horas. \textbf{EXITOSA}
+    \item Registrar una comida, una dosis de insulina y una actividad deportiva, y
+          comprobar su reflejo inmediato en la interfaz. \textbf{EXITOSA}
+    \item Enviar una consulta al agente de IA y validar que la respuesta utiliza el
+          contexto clínico reciente. \textbf{EXITOSA}
+\end{enumerate}
+
+Este enfoque permitió comprobar no solo la funcionalidad de cada módulo, sino también la
+coherencia temporal entre ellos, que es un aspecto esencial del sistema.
+
+\section{Resultados y evidencias}
+
+Los resultados obtenidos durante las pruebas confirman que el flujo principal de
+GlucoMate se ejecuta correctamente de extremo a extremo. La aplicación es capaz de recibir
+las lecturas procedentes del sensor, mostrarlas en la interfaz y mantenerlas sincronizadas
+con el resto de módulos del sistema. En las comprobaciones realizadas, los valores de
+glucosa recibidos por la aplicación coinciden con los valores que se pueden visualizar en
+la aplicación oficial Abbott FreeStyle LibreLink, lo que permite validar que la lectura
+integrada en GlucoMate conserva la información original del sensor sin alterar su valor
+clínico ni su marca temporal.
+
+Esta verificación se ha realizado comparando manualmente la lectura mostrada en GlucoMate
+con la lectura visible en LibreLink para el mismo instante de medición. La coincidencia
+entre ambas aplicaciones demuestra que el sistema interpreta correctamente los datos
+recibidos y que el frontend representa de forma fiel la información capturada. Además, la
+gráfica histórica y la lectura actual mantienen una evolución coherente, sin saltos
+temporales injustificados ni discrepancias entre el dato puntual mostrado al usuario y el
+histórico almacenado.
+
+La persistencia en base de datos también se comporta de forma correcta. Cada lectura,
+evento de comida, dosis de insulina, actividad física o registro clínico se almacena con
+una marca temporal asociada, permitiendo reconstruir la secuencia de acontecimientos de
+manera ordenada. Las pruebas realizadas evidencian que los datos guardados conservan
+coherencia temporal entre sí y que, tras cerrar y volver a abrir la aplicación, la
+información continúa disponible y se muestra de forma consistente en el frontend. Por
+tanto, no se trata únicamente de una visualización temporal en la interfaz, sino de una
+persistencia efectiva en el backend.
+
+Las evidencias principales de este apartado se apoyan en tres elementos: capturas de la
+pantalla principal con la lectura actual y la gráfica histórica, comprobaciones de la base
+de datos con los registros persistidos y comparación directa con la aplicación oficial
+Abbott FreeStyle LibreLink. En conjunto, estas evidencias permiten afirmar que el sistema
+funciona de forma estable, que los datos se guardan correctamente y que existe coherencia
+entre el sensor, la base de datos y la información presentada al usuario en la aplicación.
+

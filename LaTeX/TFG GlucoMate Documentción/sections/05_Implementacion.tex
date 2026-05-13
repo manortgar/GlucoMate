@@ -1,0 +1,111 @@
+\chapter{Implementación}\label{cap:implementacion}
+
+\section{Estructura del proyecto y tecnologías utilizadas}
+
+La implementación de GlucoMate se divide en dos grandes subsistemas: un
+\textbf{frontend móvil} desarrollado con React Native y Expo, y un \textbf{backend}
+basado en Node.js, Express y PostgreSQL. A partir del proyecto adjunto, la estructura del
+repositorio puede resumirse del siguiente modo:
+
+\begin{itemize}
+    \item \texttt{frontend/}: aplicación móvil Android, navegación, pantalla principal,
+          perfil y modales de interacción.
+    \item \texttt{backend/}: API REST, acceso a base de datos y lógica de integración con
+          servicios externos.
+\end{itemize}
+
+En el frontend se emplean React Native, Expo, \texttt{react-native-nfc-manager},
+\texttt{react-native-svg}, D3.js y \texttt{@react-navigation/bottom-tabs}. En el backend
+se utilizan Node.js, Express, \texttt{pg} para PostgreSQL y el SDK de Groq para
+la integración con el modelo generativo \texttt{llama-3.3-70b-versatile}. Esta selección tecnológica refleja una decisión
+de diseño clara: mantener una interfaz móvil moderna y, al mismo tiempo, desacoplar del
+cliente toda la lógica sensible y la persistencia estructurada.
+
+\section{Módulo NFC --- \texttt{NFCScanner.js}}
+
+El fichero \texttt{NFCScanner.js} concentra la lógica principal de la aplicación móvil.
+Desde este componente se inicia el proceso de lectura del sensor, se solicitan datos al
+puente de comunicación utilizado y se actualiza tanto la gráfica histórica como el valor
+actual de glucosa. También coordina la apertura de modales y la recarga del historial.
+
+La implementación real confirma este papel central. El componente inicializa el gestor
+NFC al montarse, comprueba si la tecnología está soportada y cancela cualquier petición
+pendiente al desmontarse. Además, mantiene en memoria el histórico glucémico, el perfil,
+los eventos clínicos recientes y el estado de visibilidad de los distintos modales.
+
+El proceso de escaneo sigue una secuencia concreta: solicitud de tecnología
+\texttt{NfcTech.NfcV}, cancelación controlada de la petición, recuperación del dato desde
+Juggluco y posterior envío de la lectura al backend mediante \texttt{POST} a
+\texttt{/api/glucose}. Tras guardar la lectura, el frontend solicita de nuevo el histórico
+de 12 horas para refrescar la visualización.
+
+\section{Módulo de visualización}
+
+La visualización integra el valor actual de glucosa con una representación histórica de
+las últimas horas. Para ello se apoya en D3.js y \texttt{react-native-svg}, lo que
+permite dibujar curvas, líneas de referencia y marcadores de eventos clínicos dentro de
+la misma pantalla.
+
+En la implementación observada, el gráfico se construye a partir del conjunto devuelto por
+\texttt{/api/glucose/history}. Ese conjunto se transforma en una estructura temporal apta
+para D3, sobre la que se calculan escalas, trayectorias y posiciones de cada evento. La
+pantalla superpone además múltiples capas de información: curva de glucosa, indicador del
+valor actual, tendencia, insulina activa, comidas registradas y actividad física reciente.
+
+La decisión de usar SVG nativo resulta especialmente adecuada en este contexto, ya que
+permite controlar con precisión cada elemento visual y combinar datos continuos
+(trayectorias) con datos discretos (eventos y marcadores) dentro del mismo lienzo.
+
+\section{Módulo de registro clínico}
+
+Los modales \texttt{InsulinModal.js}, \texttt{FoodModal.js} y
+\texttt{ExerciseModal.js} encapsulan el registro de insulina, comidas y actividad
+deportiva. Cada uno recoge los datos necesarios, los valida y los envía al backend para
+su persistencia.
+
+El backend expone para ello los endpoints \texttt{/api/insulin-events},
+\texttt{/api/food-events} y \texttt{/api/exercise-events}, tanto en lectura como en alta.
+En particular, el flujo de comidas presenta un interés adicional porque no solo registra
+hidratos de carbono, sino que puede acoplar el registro de un bolo asociado dentro de la
+misma operación lógica. Esto refuerza la idea de que la aplicación no almacena eventos
+aislados, sino relaciones clínicamente significativas entre ellos.
+
+\section{Módulo de perfil de usuario}
+
+La pantalla \texttt{ProfileScreen.js} permite almacenar la configuración terapéutica del
+usuario, incluyendo insulinas, ratios ICR por franja horaria y factor de sensibilidad.
+Estos datos constituyen la base del comportamiento personalizado del sistema.
+
+Desde el punto de vista de implementación, el perfil se apoya en dos endpoints:
+\texttt{GET /api/profile} para recuperar la configuración actual y
+\texttt{PUT /api/profile} para actualizarla. La interfaz también consulta
+\texttt{/api/insulins} para poblar los selectores de insulina rápida y basal. El resultado
+es un formulario relativamente compacto, pero con un impacto importante sobre el resto del
+sistema, ya que esos parámetros son reutilizados por el backend y por el agente de IA.
+
+\section{Agente de IA --- lógica de recomendación}
+
+La funcionalidad de apoyo inteligente se articula sobre la información clínica del
+usuario y su contexto reciente. La lógica de recomendación utiliza el perfil terapéutico,
+la glucosa actual, la insulina activa y el historial inmediato para producir respuestas
+orientativas, siempre bajo un enfoque de apoyo y no de sustitución del criterio médico.
+
+La implementación del backend muestra una estrategia razonable de construcción de
+contexto. Antes de invocar el modelo, el servidor consulta en paralelo el perfil del
+usuario, la insulina activa de las últimas horas, el ejercicio reciente y la última
+lectura de glucosa. Posteriormente calcula reducciones porcentuales en función del tipo de
+deporte, detecta situaciones de advertencia y compone un contexto textual que se remite al
+modelo generativo. Esta decisión traslada al servidor la parte más sensible de la lógica y
+evita que el cliente deba contener reglas clínicas o credenciales externas.
+
+\section{Integración y flujo global de la app}
+
+El flujo completo de implementación puede resumirse así: lectura del sensor, recepción de
+datos, persistencia en backend, recuperación del histórico, renderizado en interfaz y,
+cuando procede, generación de recomendaciones contextualizadas.
+
+En términos de integración, la aplicación presenta una arquitectura en cadena: sensor,
+aplicación puente, frontend móvil, backend y base de datos. No es una arquitectura
+puramente local, pero tampoco depende todavía de un despliegue cloud completo. Esto encaja
+con el carácter de prototipo funcional del TFG: suficientemente realista para validar el
+flujo extremo a extremo, pero todavía acotado para mantener la complejidad bajo control.

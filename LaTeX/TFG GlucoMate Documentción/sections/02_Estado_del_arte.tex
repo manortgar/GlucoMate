@@ -1,0 +1,179 @@
+\chapter{Estado del arte}
+\label{cap:estado-arte}
+
+\section{La diabetes mellitus tipo 1 y el monitoreo continuo de glucosa}
+
+La diabetes mellitus tipo 1 es una patología crónica en la que el organismo deja de
+producir insulina, lo que obliga al paciente a tomar decisiones terapéuticas de forma
+continua. En el día a día esto se traduce en medir la glucosa, calcular dosis de
+insulina, estimar hidratos de carbono y anticipar el efecto del ejercicio. El problema no
+es únicamente clínico, sino también informacional: el usuario debe interpretar datos muy
+heterogéneos en un intervalo temporal corto.
+
+Los sistemas de monitorización continua de glucosa suponen un salto cualitativo frente a
+la glucemia capilar tradicional, ya que permiten disponer de un valor reciente de glucosa
+intersticial y, además, de una tendencia de evolución. Esa combinación de valor actual,
+histórico y dirección de cambio hace posible detectar hipoglucemias, hiperglucemias o
+subidas rápidas antes de que el problema sea evidente desde una única medición aislada.
+
+Sin embargo, disponer de más datos no resuelve por sí mismo la dificultad de gestión. El
+usuario sigue necesitando relacionar esas lecturas con la insulina administrada, la comida
+ingerida y la actividad física realizada. Precisamente ahí aparece el hueco que pretende
+cubrir GlucoMate: no solo leer glucosa, sino contextualizarla.
+
+\section{Sistemas CGM comerciales: Abbott Freestyle Libre}
+
+Dentro de los sistemas comerciales de CGM (\textbf{monitoreo continuo de glucosa}), la familia \textit{Freestyle Libre} se ha
+consolidado como una de las más extendidas por su facilidad de uso y por la integración
+con teléfonos móviles. El sensor se adhiere al brazo y permite recuperar datos de glucosa
+mediante tecnologías inalámbricas, principalmente NFC para ciertas interacciones de
+lectura y Bluetooth Low Energy para la comunicación continuada en modelos recientes.
+
+Para este proyecto, el sensor de referencia es el \textit{Freestyle Libre 2 Plus}. La
+elección no es casual: es un dispositivo ampliamente utilizado, con una comunidad activa
+de usuarios y desarrolladores interesados en comprender su funcionamiento más allá del
+ecosistema oficial. Además, representa un caso realista de integración entre hardware
+médico, protocolos propietarios y aplicaciones móviles de terceros.
+
+La principal limitación del entorno comercial no es la capacidad de medición, sino el
+grado de apertura. Las aplicaciones oficiales priorizan la seguridad del ecosistema y la
+experiencia cerrada del fabricante, pero ofrecen poca flexibilidad para integrar la señal
+glucémica con otros datos generados por el paciente o para experimentar con nuevas capas
+de análisis. GlucoMate se plantea precisamente como una alternativa investigadora sobre
+esa base tecnológica.
+
+\section{Aplicaciones existentes: xDrip+, LibreMonitor, Glimp}
+
+Antes de plantear una solución propia es necesario analizar las herramientas ya
+existentes. Proyectos como \textit{xDrip+}, \textit{LibreMonitor} o \textit{Glimp} han
+demostrado que existe un interés real en ampliar las posibilidades de los sensores Abbott
+mediante software no oficial. Estas aplicaciones destacan por ofrecer funciones de
+visualización avanzada, alarmas, exportación de datos o integración con otros servicios.
+
+No obstante, muchas de ellas están orientadas a perfiles de usuario avanzados, requieren
+configuraciones técnicas poco amigables o se centran en un subconjunto del problema.
+Algunas sobresalen en conectividad, otras en comunidad, y otras en soporte histórico, pero
+no todas ofrecen un equilibrio adecuado entre simplicidad de uso, registro clínico,
+persistencia estructurada e interpretación pedagógica de los datos.
+
+La oportunidad de GlucoMate no consiste en replicar exactamente esas herramientas, sino
+en combinar varias ideas valiosas en una propuesta cohesionada: lectura de glucosa,
+registro de comidas, insulina y ejercicio, perfil terapéutico configurable y un agente de
+apoyo basado en IA capaz de usar ese contexto de manera integrada.
+
+\section{Ingeniería inversa del protocolo Abbott}
+
+Uno de los aspectos más relevantes del estado del arte en este proyecto es el trabajo de
+ingeniería inversa realizado por la comunidad sobre los sensores de Abbott. Aunque el
+transporte físico puede apoyarse en estándares conocidos, como ISO~15693 en el ámbito NFC
+o BLE en la comunicación continua, la semántica de determinados comandos y el formato de
+los datos no forman parte de una documentación pública orientada a desarrolladores de
+terceros.
+
+Como parte del análisis experimental se realizó un intento de lectura directa del sensor
+\textit{Freestyle Libre 2 Plus} desde un dispositivo Android. Desde el punto de vista de
+hardware, el sensor expone una interfaz compatible con NFC-V, tecnología asociada al
+estándar ISO~15693. El objetivo de esta prueba era validar si un teléfono móvil podía
+establecer comunicación con el parche, identificarlo correctamente y acceder a sus
+bloques de memoria mediante comandos NFC estándar.
+
+Para esta primera aproximación se utilizó React Native junto con Expo. Sin embargo, se
+comprobó que la aplicación estándar Expo Go no resultaba suficiente para este caso de
+uso, ya que no incorpora los módulos nativos necesarios para acceder a la antena NFC del
+dispositivo Android. Por este motivo, fue necesario plantear una \textit{Development
+Build} mediante EAS Build, incorporando la librería \texttt{react-native-nfc-manager} y
+los permisos específicos de Android requeridos para el uso de NFC.
+
+Durante la puesta en marcha del entorno de pruebas apareció una dificultad adicional
+relacionada con la conexión entre la aplicación instalada en el móvil y el servidor de
+desarrollo Metro. El APK intentaba resolver \texttt{localhost} o \texttt{127.0.0.1} desde
+el propio dispositivo Android, lo que impedía alcanzar el servidor ejecutado en el
+ordenador. A esto se sumaban posibles restricciones de red, como el cortafuegos de
+Windows o la falta de visibilidad entre direcciones IP de la red local. Para resolverlo
+se utilizó ADB como puente de depuración mediante USB. Tras autorizar el dispositivo, se
+redirigió el puerto de Metro con el comando \texttt{adb reverse tcp:8081 tcp:8081} y se
+lanzó Expo en modo local. De esta forma, las peticiones realizadas por la aplicación a
+\texttt{localhost:8081} quedaban encaminadas hacia el servidor Metro del ordenador.
+
+Una vez estabilizado el entorno de ejecución, se implementó una primera prueba de
+comunicación NFC con el sensor. El código básico consistió en solicitar explícitamente la
+tecnología NFC-V y recuperar la información de la etiqueta detectada:
+
+\begin{lstlisting}[language=JavaScript, caption={Prueba inicial de comunicación NFC-V con el sensor}, label={cod:nfcv-inicial}, captionpos=b]
+await NfcManager.requestTechnology(NfcTech.NfcV);
+const tag = await NfcManager.getTag();
+\end{lstlisting}
+
+La llamada a \texttt{NfcTech.NfcV} indica al sistema Android que la comunicación debe
+realizarse utilizando el protocolo ISO~15693. Esta selección es esencial, ya que el
+sensor no responde si se intenta acceder a él mediante una tecnología NFC distinta. La
+posterior llamada a \texttt{getTag()} permitió obtener información básica del dispositivo,
+incluyendo las tecnologías soportadas y su identificador único. En la prueba realizada se
+detectó una etiqueta con soporte \texttt{android.nfc.tech.NfcV} y
+\texttt{android.nfc.tech.NdefFormatable}, además de un identificador de sensor similar a
+\texttt{7328D38A78007AE0}. Este resultado confirmó que el teléfono era capaz de detectar
+el parche, reconocerlo como dispositivo NFC-V y establecer una comunicación inicial con
+él.
+
+Tras validar el reconocimiento del sensor, se intentó leer su memoria interna mediante el
+comando estándar \textit{Read Single Block} de ISO~15693, identificado por el código
+\texttt{0x20}. Se realizaron lecturas sucesivas de los bloques comprendidos entre el
+bloque 0 y el bloque 42. Aunque el sensor devolvió datos para distintos bloques, estos se
+presentaban como secuencias hexadecimales sin una estructura interpretable de forma
+directa. Por ejemplo, algunos bloques comenzaban con valores similares a
+\texttt{0da19cf20a51f2b7}, lo que evidenciaba que la lectura física era posible, pero no
+que el contenido pudiera transformarse directamente en una medida de glucosa.
+
+Este comportamiento coincide con la evolución de las medidas de protección introducidas
+por Abbott a partir de generaciones posteriores al \textit{Freestyle Libre} original. En
+modelos como el \textit{Freestyle Libre 2 Plus}, los datos almacenados y transmitidos no
+pueden interpretarse aplicando únicamente una fórmula sobre la memoria leída en bruto. La
+información relevante se encuentra protegida mediante mecanismos criptográficos
+propietarios, habitualmente descritos por la comunidad como esquemas basados en cifrado
+simétrico y claves derivadas del identificador del sensor y de procesos internos de
+emparejamiento. En consecuencia, el problema técnico deja de ser únicamente una cuestión
+de acceso NFC y pasa a incluir la comprensión del protocolo propietario, la gestión de
+claves y el descifrado de los datos.
+
+La conclusión principal de esta prueba fue que la comunicación NFC-V con el sensor es
+técnicamente viable desde Android, pero que la lectura directa de bloques ISO~15693 no es
+suficiente para obtener valores de glucosa utilizables. El obstáculo principal no se
+encuentra en la detección del sensor ni en el acceso físico a la memoria, sino en la
+interpretación criptográfica de la información obtenida. Por ello, el enfoque del
+proyecto se orientó hacia el estudio de implementaciones comunitarias ya existentes,
+especialmente Juggluco, que actúan como referencia práctica para comprender el proceso de
+lectura, emparejamiento e interpretación de sensores Abbott recientes.
+
+En este contexto aparecen referencias frecuentes a comandos propietarios como
+\texttt{0xA0} y \texttt{0xA1}, empleados en discusiones técnicas y proyectos de la
+comunidad para describir operaciones de acceso a información específica del sensor. En la
+práctica, estos comandos no deben entenderse como parte del estándar ISO~15693, sino como
+extensiones del fabricante sobre una base de comunicación conocida. Su presencia explica
+por qué la simple disponibilidad de NFC en el teléfono no basta para implementar un lector
+completo sin conocimiento adicional del protocolo.
+
+La existencia de aplicaciones puente como Juggluco encaja en este escenario. En el
+proyecto analizado, Juggluco actúa como intermediario local para obtener la lectura ya
+interpretada y ponerla a disposición de la aplicación principal mediante HTTP en la misma
+red o en el propio dispositivo. Esta aproximación reduce la complejidad de la lectura
+directa y permite centrar el esfuerzo del TFG en la integración software, la persistencia
+de datos y la capa de ayuda inteligente.
+
+\section{Normativa y consideraciones legales}
+
+El uso de sensores médicos desde aplicaciones no oficiales introduce cuestiones legales y
+éticas que no pueden ignorarse. GlucoMate no es una aplicación oficial del fabricante ni
+un producto sanitario certificado, por lo que sus resultados deben entenderse como apoyo
+informativo y no como sustitución de la supervisión clínica ni de las herramientas
+reguladas.
+
+Además, el proyecto trata datos de salud de especial sensibilidad: lecturas de glucosa,
+tratamiento farmacológico, hábitos alimentarios y actividad física. Por ello, aunque se
+trate de un prototipo académico, la arquitectura debe respetar principios básicos de
+minimización de datos, separación de credenciales, uso controlado de servicios externos y
+transparencia respecto al propósito de cada tratamiento.
+
+Desde la perspectiva del TFG, este marco legal no invalida el desarrollo experimental,
+pero sí obliga a delimitar claramente su alcance. La aplicación se presenta como una
+herramienta de investigación y apoyo, y el agente de IA incorpora avisos explícitos para
+recordar que sus recomendaciones son orientativas.

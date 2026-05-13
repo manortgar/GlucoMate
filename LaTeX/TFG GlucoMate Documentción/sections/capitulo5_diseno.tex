@@ -1,0 +1,640 @@
+% ============================================================
+%  CAPÍTULO 5 — DISEÑO DE LA SOLUCIÓN
+%  TFG: GlucoMate — Aplicación de Monitorización Continua de Glucosa
+%  Ingeniería de Software
+% ============================================================
+
+\chapter{Diseño de la Solución}
+\label{cap:diseno}
+
+Este capítulo describe las decisiones de diseño que dan forma al sistema GlucoMate:
+la arquitectura general, la descomposición en módulos, el esquema de base de datos,
+el diseño de la API REST, la visualización de datos y el diseño del agente de
+inteligencia artificial.
+
+% ──────────────────────────────────────────────────────────────
+\section{Arquitectura general del sistema}
+\label{sec:arquitectura-general}
+
+GlucoMate sigue una \textbf{arquitectura cliente-servidor en tres capas} que separa
+de forma limpia la presentación, la lógica de negocio y el almacenamiento de datos.
+La figura~\ref{fig:arquitectura-general} muestra el diagrama completo del sistema
+con todos sus componentes y los canales de comunicación entre ellos.
+
+\begin{figure}[H]
+\centering
+\resizebox{0.88\textwidth}{!}{%
+\begin{tikzpicture}[
+    box/.style={draw, rounded corners, align=center, minimum width=2.9cm, minimum height=0.9cm, font=\small},
+    ext/.style={box, fill=orange!12, draw=orange!70!black},
+    app/.style={box, fill=blue!10, draw=blue!60!black},
+    srv/.style={box, fill=green!10, draw=green!50!black},
+    db/.style={box, fill=gray!15, draw=black!60},
+    label/.style={font=\scriptsize, fill=white, inner sep=1pt}
+]
+    \node[ext] (sensor) at (0,0) {Sensor\\Freestyle Libre 2 Plus};
+    \node[ext] (juggluco) at (0,-1.8) {Juggluco\\puente local};
+    \node[app] (frontend) at (0,-3.6) {Frontend móvil\\React Native + Expo};
+    \node[srv] (backend) at (-3.6,-5.6) {Backend REST\\Node.js + Express};
+    \node[db] (postgres) at (3.6,-5.6) {PostgreSQL\\persistencia};
+    \node[ext] (llama) at (0,-7.3) {\texttt{llama-3.3-70b-versatile}\\Groq API};
+    \draw[-{Latex[length=2.6mm]}, thick] (sensor) -- node[label, right] {BLE / NFC} (juggluco);
+    \draw[-{Latex[length=2.6mm]}, thick] (juggluco) -- node[label, right] {HTTP local} (frontend);
+    \draw[-{Latex[length=2.6mm]}, thick] (frontend) -- node[label, below left] {API REST} (backend);
+    \draw[-{Latex[length=2.6mm]}, thick] (frontend) -- node[label, below right] {histórico} (postgres);
+    \draw[-{Latex[length=2.6mm]}, thick] (backend) -- node[label, below] {SQL} (postgres);
+    \draw[-{Latex[length=2.6mm]}, thick] (backend) -- node[label, left] {prompt} (llama);
+\end{tikzpicture}%
+}
+
+\caption{Arquitectura general del sistema GlucoMate. El sensor se comunica con
+         Juggluco por BLE; el frontend obtiene los datos vía HTTP local y los
+         persiste a través de la API REST; el backend accede a PostgreSQL y a
+         la API de Groq para consumir el modelo \texttt{llama-3.3-70b-versatile}.}
+\label{fig:arquitectura-general}
+\end{figure}
+
+\noindent La arquitectura presenta las siguientes características destacables:
+
+\begin{itemize}
+    \item \textbf{Desacoplamiento completo entre capas.} El frontend no accede
+          directamente a la base de datos; toda la lógica de datos pasa por la
+          API REST del backend. Esto permite actualizar el esquema de base de
+          datos sin modificar el cliente.
+
+    \item \textbf{Juggluco como puente de seguridad.} El sensor Freestyle Libre 2
+          Plus utiliza un enlace BLE cifrado con claves derivadas del número de
+          serie del sensor. Juggluco gestiona ese descifrado y expone los datos
+          ya procesados en mg/dL a través de un servidor HTTP en \texttt{localhost},
+          eliminando la necesidad de reimplementar la criptografía propietaria de
+          Abbott en GlucoMate.
+
+    \item \textbf{IA en el backend.} La integración con Groq y el modelo
+          \texttt{llama-3.3-70b-versatile} se realiza
+          exclusivamente en el servidor, garantizando que la clave de API nunca
+          se distribuye con el APK de la aplicación.
+
+    \item \textbf{Operación en red local.} En la versión actual, el frontend y el
+          backend operan en la misma red Wi-Fi local, con la IP del servidor
+          configurada estáticamente. Esto es suficiente para la validación del
+          prototipo y establece las bases para una futura migración a infraestructura
+          en la nube.
+\end{itemize}
+
+% ──────────────────────────────────────────────────────────────
+\section{Diseño de la aplicación móvil (React Native + Expo)}
+\label{sec:arquitectura-frontend}
+
+El frontend de GlucoMate está estructurado como una \textbf{Single Screen Application
+con navegación por pestañas}, implementada con \texttt{@react-navigation/bottom-tabs}.
+La figura~\ref{fig:arquitectura-frontend} muestra la jerarquía de componentes.
+
+\begin{figure}[H]
+\centering
+\resizebox{0.92\textwidth}{!}{%
+\begin{tikzpicture}[
+    comp/.style={draw, rounded corners, align=center, minimum width=2.6cm, minimum height=0.8cm, font=\small},
+    root/.style={comp, fill=blue!10, draw=blue!60!black},
+    screen/.style={comp, fill=green!10, draw=green!50!black},
+    child/.style={comp, fill=gray!10, draw=black!55, minimum width=2.4cm, minimum height=0.62cm, font=\scriptsize}
+]
+    \node[root] (app) at (0,0) {App.js\\NavigationContainer};
+    \node[screen] (glucose) at (-4.0,-1.9) {Pestaña Glucosa\\\texttt{NFCScanner.js}};
+    \node[screen] (profile) at (4.0,-1.9) {Pestaña Mi Perfil\\\texttt{ProfileScreen.js}};
+    \node[child] (graph) at (-8.4,-3.7) {renderGraph + D3};
+    \node[child] (food) at (-4.0,-3.7) {FoodModal};
+    \node[child] (exercise) at (-0.6,-3.7) {ExerciseModal};
+    \node[child] (chat) at (-6.4,-5.5) {ChatModal};
+    \node[child] (insulin) at (-2.0,-5.5) {InsulinModal};
+    \node[child] (picker) at (2.0,-4.7) {Selector de insulinas};
+    \node[child] (icr) at (4.0,-3.7) {Ratios ICR};
+    \node[child] (fsi) at (6.0,-4.7) {Factor FSI};
+    \draw[-{Latex[length=2.4mm]}, thick] (app.south west) -- (glucose.north);
+    \draw[-{Latex[length=2.4mm]}, thick] (app.south east) -- (profile.north);
+    \draw[-{Latex[length=2.2mm]}, thick] (glucose.south west) -- (graph.north);
+    \draw[-{Latex[length=2.2mm]}, thick] (glucose.south) -- (food.north);
+    \draw[-{Latex[length=2.2mm]}, thick] (glucose.south east) -- (exercise.north);
+    \draw[-{Latex[length=2.2mm]}, thick] (glucose.south east) -- (insulin.north);
+    \draw[-{Latex[length=2.2mm]}, thick] (glucose.south west) -- (chat.north);
+    \draw[-{Latex[length=2.2mm]}, thick] (profile.south west) -- (picker.north);
+    \draw[-{Latex[length=2.2mm]}, thick] (profile.south) -- (icr.north);
+    \draw[-{Latex[length=2.2mm]}, thick] (profile.south east) -- (fsi.north);
+\end{tikzpicture}%
+}
+\caption{Jerarquía de componentes del frontend de GlucoMate.}
+\label{fig:arquitectura-frontend}
+\end{figure}
+
+\texttt{NFCScanner.js} actúa como el \textbf{componente raíz de la pestaña principal}
+y concentra la mayor parte del estado de la aplicación mediante los hooks de React
+\texttt{useState} y \texttt{useEffect}. Es el responsable de:
+
+\begin{itemize}
+    \item Inicializar el gestor NFC al montar el componente y cancelar la solicitud
+          de tecnología al desmontar, evitando fugas de recursos.
+    \item Cargar el historial de glucosa, el perfil de usuario y los eventos clínicos
+          de las últimas 12 horas en paralelo.
+    \item Orquestar el flujo de escaneo NFC → llamada a Juggluco → persistencia en
+          backend → recarga de historial.
+    \item Gestionar la visibilidad de los cuatro modales (insulina, comida, ejercicio,
+          chat IA) mediante flags.
+\end{itemize}
+
+% ──────────────────────────────────────────────────────────────
+\section{Diseño de la base de datos}
+\label{sec:diseno-bd}
+
+El esquema de la base de datos PostgreSQL está diseñado para modelar los conceptos
+clínicos relevantes en el autocontrol de la diabetes tipo 1: lecturas de glucosa,
+perfil de tratamiento individual, eventos de insulina, comidas y ejercicio.
+
+\subsection{Diagrama Entidad-Relación}
+\label{subsec:er-diagram}
+
+\begin{figure}[H]
+\centering
+\resizebox{0.92\textwidth}{!}{%
+\begin{tikzpicture}[
+    entity/.style={draw, rounded corners, align=left, minimum width=2.7cm, text width=2.5cm, font=\scriptsize, inner sep=4pt},
+    rel/.style={-{Latex[length=2.2mm]}, thick}
+]
+    \node[entity, fill=blue!8] (glucose) at (-4.2,0) {\textbf{glucose\_readings}\\id (PK)\\user\_id\\glucose\_value\\trend\\reading\_time\\created\_at};
+    \node[entity, fill=green!8] (profile) at (0,0) {\textbf{user\_profile}\\id (PK)\\fast\_insulin\_id\\slow\_insulin\_id\\ICR + FSI\\updated\_at};
+    \node[entity, fill=yellow!10] (insulins) at (4.2,0) {\textbf{insulins}\\id (PK)\\name\\type\\duration\_hours\\peak\_hours};
+    \node[entity, fill=orange!10] (food) at (-4.2,-3.1) {\textbf{food\_events}\\id (PK)\\user\_id\\carbs\_g\\event\_time\\created\_at};
+    \node[entity, fill=orange!10] (insEvents) at (0,-3.1) {\textbf{insulin\_events}\\id (PK)\\user\_id\\insulin\_id\\units\\event\_time\\created\_at};
+    \node[entity, fill=orange!10] (exercise) at (4.2,-3.1) {\textbf{exercise\_events}\\id (PK)\\user\_id\\sport\_id\\start\_time\\duration\_minutes\\created\_at};
+    \node[entity, fill=purple!10] (sports) at (4.2,-6.0) {\textbf{sports}\\id (PK)\\name\\intensity\_type\\danger\_window};
+    \draw[rel] (profile) -- node[above, font=\scriptsize] {configura} (insulins);
+    \draw[rel] (insEvents) -- node[right, font=\scriptsize] {usa} (insulins);
+    \draw[rel] (exercise) -- node[right, font=\scriptsize] {usa} (sports);
+    \draw[rel] (glucose) -- node[above, font=\scriptsize] {contexto} (profile);
+    \draw[rel] (food) -- node[above, font=\scriptsize] {registro} (insEvents);
+\end{tikzpicture}%
+}
+\caption{Diagrama entidad-relación simplificado del esquema de base de datos de
+         GlucoMate.}
+\label{fig:er-diagram}
+\end{figure}
+
+\subsection{Descripción de las tablas}
+\label{subsec:tablas}
+
+\begin{description}
+    \item[\texttt{glucose\_readings}] Almacena cada lectura de glucosa recibida del
+    sensor. El campo \texttt{trend} recoge la dirección de la tendencia tal como la
+    reporta Juggluco (\texttt{Flat}, \texttt{SingleUp}, \texttt{FortyFiveDown}, etc.),
+    y \texttt{reading\_time} es un \texttt{TIMESTAMP} que permite las consultas de
+    ventana temporal (\texttt{NOW() - INTERVAL '12 HOURS'}) usadas por la gráfica.
+
+    \item[\texttt{insulins}] Catálogo de insulinas conocidas, con su tipo
+    (\texttt{fast}/\texttt{slow}), duración total en horas (\texttt{duration\_hours}) y
+    hora de pico de acción (\texttt{peak\_hours}). Esta tabla es referenciada por
+    \texttt{user\_profile} y por \texttt{insulin\_events}, y sus valores se utilizan
+    en la gráfica para calcular las ventanas de insulina activa.
+
+    \item[\texttt{user\_profile}] Contiene exactamente una fila (con \texttt{id = 1})
+    que representa el perfil de tratamiento del usuario. Los campos \texttt{icr\_*}
+    son los ratios insulina-carbohidrato para cada franja horaria del día
+    (desayuno, media mañana, almuerzo, merienda y cena), y \texttt{fsi} es el
+    Factor de Sensibilidad a la Insulina (mg/dL por unidad). La tabla se gestiona
+    mediante un \texttt{UPSERT} (\texttt{INSERT ... ON CONFLICT DO UPDATE}) que
+    garantiza que siempre existe una única fila, independientemente del número de
+    veces que se guarde el perfil.
+
+    \item[\texttt{insulin\_events}] Registra cada inyección de insulina realizada por
+    el usuario. La clave foránea \texttt{insulin\_id} permite conocer la duración y el
+    pico de cada dosis, datos necesarios para calcular la insulina activa (IOB) y para
+    renderizar las ventanas rosas en la gráfica.
+
+    \item[\texttt{food\_events}] Registra cada comida con sus gramos de carbohidratos
+    y la hora de ingesta. Esta información aparece en la gráfica como marcadores
+    verdes con la cantidad de hidratos, y es el dato de entrada principal para el
+    cálculo de dosis del agente de IA.
+
+    \item[\texttt{sports}] Catálogo de actividades deportivas con su tipo de
+    intensidad (\texttt{Aeróbico}, \texttt{Mixto}, \texttt{Baja intensidad},
+    \texttt{Anaeróbico}) y su ventana de peligro en horas
+    (\texttt{danger\_window\_hours}), que determina cuánto tiempo después del
+    ejercicio puede seguir afectando a la glucosa.
+
+    \item[\texttt{exercise\_events}] Registra cada sesión de ejercicio con su
+    deporte, hora de inicio y duración en minutos. Esta información se usa tanto
+    para la representación gráfica (ventana naranja con línea de peligro
+    postejercicio punteada) como para el contexto del agente de IA, que aplica
+    reducciones de bolo en función del tipo de intensidad del deporte.
+\end{description}
+
+\subsection{Decisiones de diseño relevantes de la BD}
+\label{subsec:decisiones-bd}
+
+\begin{itemize}
+    \item \textbf{Perfil de usuario como fila única.} El diseño de \texttt{user\_profile}
+          con \texttt{id = 1} fijo es una simplificación deliberada para un sistema
+          monousuario. El mecanismo \texttt{UPSERT} garantiza que la pantalla de perfil
+          siempre opera correctamente, tanto en la primera configuración como en
+          actualizaciones posteriores.
+
+    \item \textbf{Catálogos de insulinas y deportes.} Separar las propiedades
+          farmacológicas de las insulinas (duración, pico) y las características de los
+          deportes (intensidad, ventana de peligro) en tablas de catálogo independientes
+          permite que el sistema sea extensible: añadir una nueva insulina o un nuevo
+          deporte no requiere cambios en la lógica de la aplicación.
+
+    \item \textbf{Transacción atómica en registro de comida.} Cuando el usuario
+          registra una comida e indica también un bolo de insulina, el backend ejecuta
+          ambas inserciones (\texttt{food\_events} e \texttt{insulin\_events}) dentro
+          de una misma transacción. Si cualquiera de las dos falla, se hace
+          \texttt{ROLLBACK} completo, garantizando que nunca quede una comida registrada
+          sin su insulina asociada ni viceversa.
+\end{itemize}
+
+% ──────────────────────────────────────────────────────────────
+\section{Diseño de la API REST}
+\label{sec:diseno-api}
+
+El backend expone una API REST que constituye el único canal de comunicación entre
+el frontend y los datos. La tabla~\ref{tab:api-endpoints} recoge todos los
+\textit{endpoints} implementados.
+
+\begin{table}[H]
+\centering
+\caption{Endpoints de la API REST de GlucoMate.}
+\label{tab:api-endpoints}
+\begin{tabular}{|l|l|p{7cm}|}
+\hline
+\textbf{Método} & \textbf{Ruta} & \textbf{Descripción} \\
+\hline
+\texttt{POST} & \texttt{/api/glucose}            & Persiste una nueva lectura de glucosa (valor, tendencia, timestamp). \\
+\texttt{GET}  & \texttt{/api/glucose/history}    & Devuelve las lecturas de las últimas 12 horas ordenadas por tiempo, para la gráfica D3. \\
+\hline
+\texttt{GET}  & \texttt{/api/insulins}           & Devuelve el catálogo completo de insulinas (rápidas y lentas). \\
+\texttt{GET}  & \texttt{/api/profile}            & Devuelve el perfil de tratamiento del usuario (JOIN con insulinas). \\
+\texttt{PUT}  & \texttt{/api/profile}            & Crea o actualiza el perfil de tratamiento (UPSERT). \\
+\hline
+\texttt{GET}  & \texttt{/api/insulin-events}     & Devuelve inyecciones de insulina recientes (parámetro \texttt{hours}, por defecto 24). \\
+\texttt{POST} & \texttt{/api/insulin-events}     & Registra una nueva inyección de insulina. \\
+\hline
+\texttt{GET}  & \texttt{/api/food-events}        & Devuelve comidas registradas recientes (parámetro \texttt{hours}). \\
+\texttt{POST} & \texttt{/api/food-events}        & Registra una comida y, opcionalmente, el bolo de insulina asociado (transacción). \\
+\hline
+\texttt{GET}  & \texttt{/api/sports}             & Devuelve el catálogo de deportes disponibles. \\
+\texttt{GET}  & \texttt{/api/exercise-events}    & Devuelve sesiones de ejercicio recientes. \\
+\texttt{POST} & \texttt{/api/exercise-events}    & Registra una nueva sesión de ejercicio. \\
+\hline
+\texttt{POST} & \texttt{/api/chat}               & Envía un mensaje al agente de IA. Recopila contexto en tiempo real, construye el \textit{system prompt} y llama a Groq para inferir con \texttt{llama-3.3-70b-versatile}. \\
+\hline
+\end{tabular}
+\end{table}
+
+Todos los \textit{endpoints} de escritura aceptan y devuelven JSON con cabecera
+\texttt{Content-Type: application/json}. Las respuestas de error incluyen siempre un
+campo \texttt{error} con un mensaje descriptivo y un código HTTP apropiado (400 para
+errores de validación, 500 para errores internos del servidor).
+
+% ──────────────────────────────────────────────────────────────
+\section{Decisiones de diseño}
+\label{sec:diseno-grafica}
+
+La gráfica de glucosa es el elemento central de la interfaz de GlucoMate y el que
+mayor complejidad de diseño presenta. Se han tomado las siguientes decisiones de diseño:
+
+\subsection{Ventana temporal y escalas}
+\label{subsec:ventana-temporal}
+
+La gráfica muestra siempre una ventana de \textbf{12 horas}: 11 horas hacia el pasado
+desde el momento actual y 1 hora hacia el futuro. Esta decisión reproduce la convención
+clínica establecida por las principales aplicaciones de MCG (Dexcom CLARITY, LibreLinkUp)
+y permite al usuario ver la tendencia reciente con suficiente contexto histórico.
+
+Las escalas se calculan dinámicamente en cada renderizado:
+
+\begin{itemize}
+    \item \textbf{Eje X (temporal):} \texttt{d3Scale.scaleTime()} mapea el rango de
+          timestamps [\texttt{ahora - 11h}, \texttt{ahora + 1h}] al ancho de pantalla
+          en píxeles, con un margen lateral de 20px en cada extremo.
+
+    \item \textbf{Eje Y (glucosa):} \texttt{d3Scale.scaleLinear()} mapea el rango
+          [50, \texttt{max\_12h + 50}] a la altura del SVG, con el valor mínimo fijo
+          en 50 mg/dL y el máximo calculado dinámicamente como el pico del historial
+          más un margen de 50 mg/dL para evitar que la curva toque el borde superior.
+\end{itemize}
+
+\subsection{Curva de glucosa}
+\label{subsec:curva}
+
+La curva principal se genera con \texttt{d3Shape.line().curve(d3Shape.curveMonotoneX)},
+que produce una interpolación cúbica monotónica. Esta elección sobre otras curvas de D3
+(cardinal, catmull-rom, natural) se justifica porque \texttt{curveMonotoneX} garantiza
+que la curva no oscila artificialmente entre puntos: si los datos van hacia arriba, la
+curva va hacia arriba, lo que es crítico en un contexto clínico donde una oscilación
+falsa podría malinterpretarse como un evento real de hipoglucemia o hiperglucemia.
+
+\subsection{Líneas de referencia clínicas}
+\label{subsec:lineas-referencia}
+
+La gráfica incluye dos líneas horizontales de referencia punteadas en los valores
+\textbf{70 mg/dL} (umbral de hipoglucemia) y \textbf{180 mg/dL} (umbral de
+hiperglucemia), con la zona entre ellas coloreada en verde translúcido
+(\texttt{rgba(200, 230, 201, 0.4)}) como indicador visual del rango objetivo.
+Estos valores son los estándares clínicos reconocidos por la American Diabetes
+Association (ADA).
+
+\subsection{Capas de eventos superpuestas}
+\label{subsec:capas-eventos}
+
+Una de las características más innovadoras de la gráfica de GlucoMate es la
+superposición de múltiples capas de información clínica sobre la curva de glucosa.
+El diseño contempla tres capas independientes, cada una activable/desactivable
+mediante los \textit{chips} de filtro:
+
+\begin{description}
+    \item[\textbf{Capa de insulina rápida (rosa).}] Para cada inyección de insulina
+    rápida activa, se dibuja un rectángulo translúcido (\texttt{rgba(255, 105, 180, 0.3)})
+    que abarca desde el momento de la inyección hasta el fin de su duración. Una línea
+    vertical punteada de color rosa intenso (\texttt{\#e91e63}) marca el momento de
+    pico de acción de la insulina, el instante en que su efecto hipoglucemiante es
+    máximo.
+
+    \item[\textbf{Capa de ejercicio (naranja).}] Para cada sesión de ejercicio, se
+    dibuja un rectángulo translúcido (\texttt{rgba(255, 152, 0, 0.3)}) durante la
+    duración de la actividad. Una línea punteada naranja horizontal indica la
+    extensión de la ventana de peligro postejercicio (\texttt{danger\_window\_hours}),
+    el periodo durante el cual el ejercicio sigue afectando a la sensibilidad a la
+    insulina.
+
+    \item[\textbf{Capa de comidas (verde).}] Cada comida se representa con un
+    marcador circular verde en la parte inferior de la gráfica, mostrando los gramos
+    de carbohidratos registrados, y una línea vertical punteada que sube hasta la
+    parte superior del área de dibujo.
+
+
+\end{description}
+
+Una capa superpuesta sobre la gráfica pero siempre visible y no desactivable es las\textbf{etiquetas de eje X.} Los ticks del eje temporal se muestran cada
+    dos horas en horas pares (00:00, 02:00, 04:00...), calculadas de forma dinámica
+    para que siempre sean horas redondas independientemente del momento del día.
+
+\subsection{Indicador de glucosa actual}
+\label{subsec:indicador-glucosa}
+
+El valor actual de glucosa se muestra con una tipografía de \textbf{110 puntos} en la
+parte superior de la pantalla, coloreado dinámicamente según el rango:
+
+\begin{itemize}
+    \item \textcolor{blue}{\textbf{Azul}} (\texttt{\#2196F3}): glucosa en rango normal (70--180 mg/dL).
+    \item \textcolor{red}{\textbf{Rojo}} (\texttt{\#f44336}): hipoglucemia (menor a 70 mg/dL).
+    \item \textcolor{orange}{\textbf{Naranja}} (\texttt{\#ff9800}): hiperglucemia (mayor a 180 mg/dL).
+    \item \textbf{Gris} (\texttt{\#9e9e9e}): dato antiguo o sin lectura reciente.
+\end{itemize}
+
+La flecha de tendencia (\texttt{up / up-right / right / down-right / down}) se renderiza con una fuente
+personalizada (\texttt{ArrowFont}) cargada mediante \texttt{expo-font}, ya que los
+caracteres de flecha estándar de Unicode no tienen representación tipográfica uniforme
+en todos los dispositivos Android.
+
+% ──────────────────────────────────────────────────────────────
+\section{Diseño de la capa de presentación (UI/UX)}
+\label{sec:diseno-modales}
+
+Los tres modales de registro de eventos clínicos (insulina, comida y ejercicio) siguen
+un patrón de diseño uniforme:
+
+\begin{enumerate}
+    \item \textbf{Modal superpuesto con overlay semitransparente.} Cada modal se
+          presenta como un \texttt{Modal} de React Native con \texttt{transparent=true}
+          y un overlay \texttt{rgba(0,0,0,0.5)} que oscurece el contenido subyacente,
+          manteniendo el contexto visual de la pantalla principal.
+
+    \item \textbf{Selector de hora manual.} Los tres modales incluyen un selector
+          de hora compuesto por dos campos \texttt{TextInput} (horas y minutos),
+          inicializados con la hora actual del dispositivo. Si la hora introducida
+          es posterior a la hora actual del sistema, el modal la interpreta
+          automáticamente como perteneciente al día anterior, resolviendo el caso
+          de uso habitual de registrar una inyección nocturna antes de medianoche.
+
+    \item \textbf{Feedback visual de estado.} El botón de guardar muestra un
+          \texttt{ActivityIndicator} durante el guardado y queda deshabilitado
+          hasta que los campos obligatorios son válidos, previniendo envíos duplicados.
+\end{enumerate}
+
+Las particularidades de cada modal son:
+
+\begin{description}
+    \item[\texttt{InsulinModal.js}] Permite seleccionar entre insulina rápida e
+    insulina lenta mediante un selector de dos botones cuyo estado activo muestra
+    los colores específicos de cada tipo (rosa para rápida, morado para lenta),
+    tomando los nombres de insulina configurados en el perfil del usuario.
+
+    \item[\texttt{FoodModal.js}] Incluye dos campos numéricos: gramos de
+    carbohidratos y unidades de bolo de insulina rápida. El campo de bolo queda
+    deshabilitado si el usuario no tiene insulina rápida configurada en su perfil,
+    mostrando un mensaje de error orientativo.
+
+    \item[\texttt{ExerciseModal.js}] Carga dinámicamente el catálogo de deportes
+    desde el \textit{endpoint} \texttt{/api/sports} al abrirse, mostrando cada
+    deporte junto con su ventana de peligro en horas. El formulario incluye también
+    la duración de la sesión en minutos.
+\end{description}
+
+% ──────────────────────────────────────────────────────────────
+\section{Diseño del perfil de usuario y parametrización clínica}
+\label{sec:diseno-perfil}
+
+La pantalla \texttt{ProfileScreen.js} permite al usuario configurar los parámetros
+individuales de su tratamiento, que el agente de IA utilizará como contexto para
+personalizar sus recomendaciones.
+
+Los parámetros configurables son:
+
+\begin{itemize}
+    \item \textbf{Insulina rápida y lenta:} seleccionadas mediante \texttt{Picker}
+          desplegable del catálogo de insulinas, mostrando nombre y duración (7 insulinas rápidas y 6 lentas, guardadas en base de datos. Las más comunes).
+    \item \textbf{Ratios ICR por franja horaria:} un campo numérico por cada una de
+          las cinco franjas del día (desayuno, media mañana, almuerzo, merienda y cena),
+          expresado en gramos de carbohidratos por unidad de insulina (g/U).
+    \item \textbf{Factor de Sensibilidad a la Insulina (FSI):} cuántos mg/dL reduce
+          la glucosa una unidad de insulina rápida, utilizado para calcular el bolo
+          de corrección cuando la glucosa está por encima del rango.
+\end{itemize}
+
+El guardado se realiza mediante una petición \texttt{PUT} a \texttt{/api/profile},
+que ejecuta un \texttt{UPSERT} en la base de datos. El botón de guardar cambia
+visualmente a verde con el texto ``Guardado correctamente'' durante 3 segundos tras una
+operación exitosa, o a rojo con ``Error al guardar'' si la petición falla, antes
+de volver a su estado neutro.
+
+% ──────────────────────────────────────────────────────────────
+\section{Diseño del agente de IA (lógica de recomendación según perfil)}
+\label{sec:diseno-ia}
+
+El agente de IA de GlucoMate es el componente más innovador del sistema. Su diseño
+se basa en el paradigma de \textbf{\textit{context-aware prompting}}: en lugar de
+enviar al modelo únicamente el mensaje del usuario, el backend construye en tiempo
+real un \textit{system prompt} rico en datos clínicos del usuario antes de cada
+llamada a la API.
+
+\subsection{Recolección de contexto en tiempo real}
+\label{subsec:contexto-ia}
+
+Al recibir una petición \texttt{POST /api/chat}, el backend ejecuta cuatro consultas
+SQL en paralelo mediante \texttt{Promise.all}:
+
+\begin{enumerate}
+    \item \textbf{Perfil de tratamiento:} ratios ICR por franja horaria y FSI.
+    \item \textbf{Insulina activa (IOB):} suma de unidades de insulina rápida
+          inyectadas en las últimas 4 horas.
+    \item \textbf{Ejercicio en ventana de peligro:} deportes practicados cuya
+          ventana de peligro aún no ha expirado, con su tipo de intensidad.
+    \item \textbf{Glucosa actual:} último valor registrado y su tendencia.
+\end{enumerate}
+
+La ejecución en paralelo minimiza la latencia total de recopilación de contexto,
+que de otro modo se acumularía de forma secuencial.
+
+\subsection{Lógica de reducción por tipo de deporte}
+\label{subsec:reduccion-deporte}
+
+El sistema implementa una tabla de reducción de bolo en función del tipo de
+intensidad del ejercicio practicado:
+
+\begin{table}[H]
+\centering
+\caption{Porcentajes de reducción del bolo de insulina por tipo de intensidad
+         deportiva, implementados en la constante \texttt{SPORT\_REDUCTION} del backend.}
+\label{tab:sport-reduction}
+\begin{tabular}{|l|c|p{6cm}|}
+\hline
+\textbf{Tipo de intensidad} & \textbf{Reducción} & \textbf{Comportamiento del agente} \\
+\hline
+Aeróbico        & 20\%  & Reduce el bolo calculado y lo explica. \\
+Mixto           & 12,5\% & Reduce el bolo calculado y lo explica. \\
+Baja intensidad & 5\%   & Reduce el bolo calculado y lo explica. \\
+Anaeróbico      & 0\%   & No reduce el bolo, pero advierte del riesgo de hipoglucemia postejercicio. \\
+\hline
+\end{tabular}
+\end{table}
+
+Si el usuario ha practicado múltiples deportes en sus respectivas ventanas de peligro,
+el sistema aplica la reducción máxima de entre todos ellos. Si alguno es anaeróbico,
+se emite la advertencia correspondiente adicionalmente.
+
+\subsection{Construcción del \textit{system prompt}}
+\label{subsec:system-prompt}
+
+El \textit{system prompt} que recibe \texttt{llama-3.3-70b-versatile} en cada llamada es un documento de texto
+estructurado en secciones que incluye:
+
+\begin{itemize}
+    \item \textbf{Identidad y restricciones:} el agente se identifica como
+          ``GlucoMate AI'', responde siempre en español y de forma concisa.
+    \item \textbf{Datos en tiempo real:} glucosa actual, tendencia, ICR por franja
+          horaria, FSI, y alerta de IOB activo si supera 1 UI.
+    \item \textbf{Instrucciones de cálculo de bolo:} algoritmo paso a paso con
+          fórmula explícita (\texttt{unidades = (g HC ÷ 10) × ICR}), con instrucción
+          de solicitar la franja horaria si no está clara.
+    \item \textbf{Reglas de glucosa actual:} si la glucosa es menor de 70, no
+          recomendar insulina; si es mayor de 180, añadir bolo de corrección
+          (\texttt{(glucosa - 100) ÷ FSI}); si está en rango, sin corrección.
+    \item \textbf{Contexto de deporte:} la reducción de bolo calculada o la
+          advertencia de deporte anaeróbico.
+    \item \textbf{Aviso obligatorio:} el agente debe incluir al inicio de cada
+          respuesta el texto ``Aviso: soy una IA de apoyo, no un médico. Esta sugerencia
+          no reemplaza el criterio clínico.'', garantizando que el usuario siempre
+          conoce las limitaciones del sistema.
+\end{itemize}
+
+El modelo se llama con \texttt{temperature: 0.2} para maximizar la consistencia
+y el rigor del razonamiento clínico, minimizando la variabilidad creativa que
+sería inapropiada en un contexto médico.
+
+\subsection{Mecanismo de reintento}
+\label{subsec:reintento-ia}
+
+La llamada a la API de Groq está protegida por un mecanismo de reintento que
+realiza hasta 3 intentos con una pausa de 5 segundos entre ellos ante errores 503
+(\textit{Service Unavailable}) o 429 (\textit{Too Many Requests}). Cualquier otro
+tipo de error se propaga inmediatamente al cliente.
+
+% ──────────────────────────────────────────────────────────────
+\section{Diseño de la interfaz de usuario}
+\label{sec:diseno-ui}
+
+El diseño visual de GlucoMate parte de los mockups digitales elaborados durante la
+fase de prototipado y sigue los principios del \textit{Material Design} de Google,
+que es la referencia de diseño nativa de Android.
+
+Las decisiones de diseño más relevantes son:
+
+\begin{itemize}
+    \item \textbf{Jerarquía visual clara.} El valor de glucosa (110pt) domina
+          visualmente la pantalla, ya que es la información más crítica para el
+          usuario diabético. Los demás elementos (gráfica, botones de acción) se
+          subordinan a él en tamaño e importancia visual.
+
+    \item \textbf{Codificación de color semántica y consistente.} El sistema usa
+          el mismo código de color en toda la interfaz: verde para comidas, rosa/rojo
+          para insulina rápida, morado para insulina lenta, naranja para ejercicio.
+          Esta consistencia permite al usuario interpretar la gráfica de forma
+          intuitiva sin necesidad de leer etiquetas.
+
+    \item \textbf{Botón NFC en posición de pulgar.} El botón de escaneo se sitúa
+          en la esquina superior izquierda de la pantalla, zona de máxima
+          accesibilidad con el pulgar derecho en dispositivos de pantalla grande.
+          Cambia de color a naranja mientras espera el escaneo, proporcionando
+          feedback visual inmediato del estado del sistema.
+
+    \item \textbf{Navegación por pestañas inferior.} La barra de navegación
+          inferior con dos pestañas (Glucosa y Mi Perfil) sigue el patrón de
+          navegación estándar de Android y respeta el área segura del sistema
+          mediante \texttt{useSafeAreaInsets}, evitando solapamientos con la
+          barra de navegación del sistema.
+
+    \item \textbf{Botón flotante de IA (FAB).} El acceso al chat de inteligencia
+          artificial se implementa como un botón flotante de acción (FAB) de color
+          azul marino (\texttt{\#1a237e}) con un icono de chispa (\texttt{sparkles}),
+          que evoca la naturaleza inteligente de la funcionalidad sin ocupar espacio
+          permanente en la interfaz principal.
+\end{itemize}
+
+% ──────────────────────────────────────────────────────────────
+\section{Flujo global de interacción}
+\label{sec:flujo-principal}
+
+El flujo de uso más frecuente de GlucoMate —escanear el sensor y consultar al
+agente de IA— sigue la siguiente secuencia:
+
+\begin{figure}[H]
+\centering
+\resizebox{0.92\textwidth}{!}{%
+\begin{tikzpicture}[
+    lifeline/.style={font=\small, align=center},
+    msg/.style={-{Latex[length=2.2mm]}, thick},
+    reply/.style={msg, dashed},
+    every node/.style={font=\scriptsize}
+]
+    \node[lifeline] (u) at (0,0) {Usuario};
+    \node[lifeline] (f) at (3.4,0) {Frontend};
+    \node[lifeline] (b) at (6.8,0) {Backend};
+    \node[lifeline] (g) at (10.2,0) {Groq / BD};
+    \foreach \x in {u,f,b,g} \draw[densely dashed] (\x.south) -- ++(0,-10.4);
+    \draw[msg] (0,-0.8) -- node[above] {Pulsa NFC} (3.4,-0.8);
+    \draw[msg] (3.4,-1.5) -- node[above] {NfcV} (6.8,-1.5);
+    \draw[reply] (6.8,-2.2) -- node[above] {activo} (3.4,-2.2);
+    \draw[msg] (3.4,-2.9) -- node[above] {GET Juggluco} (6.8,-2.9);
+    \draw[reply] (6.8,-3.6) -- node[above] {lectura} (3.4,-3.6);
+    \draw[msg] (3.4,-4.3) -- node[above] {POST /glucose} (6.8,-4.3);
+    \draw[msg] (6.8,-5.0) -- node[above] {persistencia} (10.2,-5.0);
+    \draw[reply] (10.2,-5.7) -- node[above] {ok + histórico} (6.8,-5.7);
+    \draw[reply] (6.8,-6.4) -- node[above] {gráfica} (3.4,-6.4);
+    \draw[msg] (0,-7.1) -- node[above] {consulta IA} (3.4,-7.1);
+    \draw[msg] (3.4,-7.8) -- node[above] {POST /chat} (6.8,-7.8);
+    \draw[msg] (6.8,-8.5) -- node[above] {prompt + contexto} (10.2,-8.5);
+    \draw[reply] (10.2,-9.2) -- node[above] {respuesta} (6.8,-9.2);
+    \draw[reply] (6.8,-9.9) -- node[above] {reply} (3.4,-9.9);
+\end{tikzpicture}%
+}
+\caption{Diagrama de secuencia del flujo principal de GlucoMate: escaneo NFC y
+         consulta al agente de IA.}
+\label{fig:flujo-principal}
+\end{figure}

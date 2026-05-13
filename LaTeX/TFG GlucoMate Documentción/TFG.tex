@@ -1,0 +1,103 @@
+\documentclass[12pt]{report}
+
+% Paquetes LaTeX y estilos globales
+\input{etc/pkgs}
+\input{etc/style}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% Variables para la portada
+\setTitle{GlucoMate \\ \medskip \textit{Gestión inteligente y monitorización en tiempo real para tu diabetes.}}
+\setAuthor{Manuel Ortega García} % Si hay más de un autor, separarlos con \\
+\setDegree{Grado en Ingeniería Informática - Ingeniería del Software} % Cambiar si es necesario
+\setSupervisor{Manuel Jesus Domínguez Morales \\ Luis Muñoz Saavedra} % Si hay más de un tutor, separarlos con \\
+\setDepartment{Arquitectura y Tecnología de Computadores}
+\setMonth{junio} % Dejar sólo el mes de la convocatoria en que se presenta el trabajo
+\setYear{2025/26} % Por ejemplo, 2022/23
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% Dedicatoria del trabajo
+% Si no se desea incluir, comentar o borrar la línea siguiente para eliminar la página de dedicatoria
+\setDedication{Dedicado a mis padres y a mi hermana, quienes siempre me han mantenido enfocado en lo que hago y en lo que puedo llegar a ser. Por hacerme fuerte cuando mas débil he sido.\\ Gracias sois mi vida.\\[10pt]
+Y a mi pareja que empezó conmigo esta etapa de mi vida y me acompaña a cerrarla.\\ Te quiero.\\[10pt]
+
+Os los dedico\\[20pt]
+
+Cuando el aire era más puro\\
+y la marisma más verde.\\
+Cuando al nacer la mañana\\
+volaban patos silvestres.\\
+Cuando el coto de Doñana\\
+era alfombra celeste\\
+y el cielo se reflejaba\\
+en los lucios transparentes.\\[5pt]
+
+Completamente redondo\\
+estaba el sol amarillo,\\
+que besaba el horizonte\\
+bañándolo con su brillo.\\
+Las nubes tímidamente\\
+se teñían de naranja\\
+y se alargaban las sombras\\
+de los pinos verde y malva.\\[5pt]
+
+Rompió el silencio de siglos\\
+un ladrido en la Rocina.\\
+Junto un reseco acebuche\\
+los perros se arremolinan.\\
+Por el viejo tronco asoma\\
+una cara tan divina,\\
+que el cazaó emocionao\\
+cayó al suelo de rodillas.\\[5pt]
+
+Quien hubiera sido tú,\\
+cazador de las marismas,\\
+para quedar sorprendío\\
+y ser el primero en ver\\
+a la virgen del roció.\\
+
+}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% Comienzo del documento
+\begin{document}
+
+    % Portada y secciones no numeradas
+    \input{sections/00_portada}
+    \input{sections/00_agradecimientos}
+    \input{sections/00_resumen}
+    \input{sections/00_abstract}
+    
+    % Índice del documento y de figuras
+    \begingroup
+        % Los enlaces son normalmente azules, pero en los índices se configuran a negro para que no aparezca todo azul
+        \hypersetup{linkcolor=black}
+        \tableofcontents
+        \listoffigures
+        \listoftables
+        \lstlistoflistings
+    \endgroup
+    
+    % Cambia el estilo de números de página de romanos a normal
+    \clearpage\pagenumbering{arabic}
+    
+    % Capítulos del trabajo
+
+    \input{sections/capitulo1_introduccion}
+    \input{sections/02_Estado_del_arte}
+    \input{sections/03_Analisis}
+    \input{sections/capitulo4_metodologia}
+    \input{sections/capitulo5_diseno}
+    \input{sections/06_Pruebas}
+
+    \input{sections/XX_Conclusiones}
+
+    % Bibliografía
+    \bibliographystyle{unsrtnat}
+    \bibliography{bibliografia.bib}
+        
+
+% Fin del documento
+\end{document}

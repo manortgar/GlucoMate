@@ -1,0 +1,183 @@
+\chapter{Análisis del problema}\label{cap:analisis}
+
+\section{Descripción del problema}
+
+El problema que aborda GlucoMate nace de una necesidad doble. Por un lado, las personas
+con diabetes tipo 1 necesitan consultar su glucosa y contextualizarla continuamente con
+otros factores clínicos como la insulina administrada, las comidas y la actividad
+deportiva. Por otro, las soluciones disponibles suelen fragmentar esa información,
+limitar la personalización del tratamiento o no ofrecer una capa de apoyo pedagógico que
+ayude a interpretar los datos.
+
+Desde el punto de vista técnico, el proyecto debe integrar en una única solución móvil la
+captura de datos del sensor, su persistencia, su visualización histórica y la generación
+de recomendaciones adaptadas al perfil del usuario.
+
+El análisis del proyecto real confirma además varias restricciones de partida. La primera
+es la dependencia del ecosistema Android para el acceso a NFC y para la integración con la
+cadena de herramientas elegida. La segunda es la necesidad de apoyarse en una aplicación
+intermedia, Juggluco, para disponer del dato glucémico descifrado. La tercera es la
+separación entre frontend y backend, necesaria para no exponer en el cliente las
+credenciales de base de datos ni la clave del servicio de IA.
+
+\section{Requisitos funcionales}
+
+Entre los requisitos funcionales principales del sistema se encuentran los siguientes:
+
+\begin{itemize}
+    \item[\textbf{RF-001:}] Leer lecturas de glucosa del sensor Freestyle Libre 2 Plus
+          desde un dispositivo Android.
+    \item[\textbf{RF-002:}] Solicitar el dato glucémico reciente a un servicio puente
+          accesible mediante HTTP local.
+    \item[\textbf{RF-003:}] Mostrar el valor actual de glucosa y su tendencia de forma
+          clara e inmediata.
+    \item[\textbf{RF-004:}] Representar la evolución histórica reciente mediante una
+          gráfica temporal.
+    \item[\textbf{RF-005:}] Registrar eventos clínicos relevantes: comidas, insulina y
+          actividad física.
+    \item[\textbf{RF-006:}] Gestionar un perfil configurable con parámetros terapéuticos
+          del usuario.
+    \item[\textbf{RF-007:}] Persistir los datos en una base de datos para su posterior
+          consulta.
+    \item[\textbf{RF-008:}] Generar recomendaciones orientativas a través de un agente
+          de IA.
+    \item[\textbf{RF-009:}] Recuperar catálogos auxiliares, como insulinas y deportes,
+          para facilitar la entrada de datos.
+    \item[\textbf{RF-010:}] Mantener sincronizados frontend, backend y base de datos tras
+          cada operación de lectura o registro.
+\end{itemize}
+
+\section{Requisitos no funcionales}
+
+Los requisitos no funcionales más relevantes son:
+
+\begin{itemize}
+    \item[\textbf{RNF-01:}] La aplicación debe poder ser utilizada por personas no
+          expertas, con una interfaz directa y comprensible.
+    \item[\textbf{RNF-02:}] La lectura, almacenamiento y renderizado de datos deben
+          producirse sin demoras perceptibles para el usuario.
+    \item[\textbf{RNF-03:}] El sistema debe gestionar errores de red, NFC o backend sin
+          comprometer la estabilidad general de la aplicación.
+    \item[\textbf{RNF-04:}] La solución debe organizarse en módulos separados para
+          facilitar su evolución futura.
+    \item[\textbf{RNF-05:}] Las credenciales y claves de servicios externos no deben
+          distribuirse dentro del cliente móvil.
+\end{itemize}
+
+\section{Requisitos de información}
+
+Para operar correctamente, GlucoMate necesita manejar al menos los siguientes bloques de
+información:
+
+\begin{itemize}
+    \item[\textbf{RI-01:}] Lecturas de glucosa con su correspondiente marca temporal.
+    \item[\textbf{RI-02:}] Datos del perfil terapéutico del usuario.
+    \item[\textbf{RI-03:}] Registros de administración de insulina.
+    \item[\textbf{RI-04:}] Registros de comidas y su información asociada.
+    \item[\textbf{RI-05:}] Registros de actividad física y ejercicio.
+    \item[\textbf{RI-06:}] Respuestas generadas por el agente de apoyo.
+    \item[\textbf{RI-07:}] Formato homogéneo de los datos para poder cruzarlos en la
+          visualización y en la lógica de recomendación.
+\end{itemize}
+
+En términos más concretos, el backend del proyecto trabaja con entidades equivalentes a
+\texttt{glucose\_readings}, \texttt{user\_profile}, \texttt{insulins},
+\texttt{insulin\_events}, \texttt{food\_events}, \texttt{sports} y
+\texttt{exercise\_events}. Esta estructura confirma que la aplicación no se limita a una
+mera lectura puntual del sensor, sino que construye una historia clínica reducida pero
+operativa para personalizar la ayuda mostrada al usuario.
+
+\section{Casos de uso}
+
+Los casos de uso principales del sistema son: consultar la glucosa actual, revisar el
+histórico, registrar una comida, registrar una dosis de insulina, registrar actividad
+física, editar el perfil terapéutico y solicitar una recomendación al agente de IA.
+
+El actor principal es la persona con diabetes que utiliza la aplicación desde su teléfono
+móvil. Como actores secundarios pueden considerarse el backend de GlucoMate, la base de
+datos PostgreSQL, Juggluco como servicio puente y el proveedor externo del modelo de IA.
+La mayor parte de los casos de uso combinan interacción local en el móvil con llamadas de
+red a servicios de apoyo.
+
+\subsection{Consultar la glucosa actual}
+
+\textbf{Actor:} usuario con diabetes.
+
+\textbf{Flujo principal:} el usuario accede a la pantalla principal de la aplicación y
+solicita la lectura más reciente del sensor. La aplicación obtiene el dato glucémico a
+través del servicio puente, lo procesa y muestra en pantalla el valor actual junto con su
+tendencia. Este caso de uso concentra la interacción esencial del sistema, ya que permite
+al usuario conocer de forma inmediata su situación glucémica actual.
+
+\subsection{Revisar el histórico}
+
+\textbf{Actor:} usuario con diabetes.
+
+\textbf{Flujo principal:} el usuario abre la vista histórica desde la aplicación. El
+sistema recupera las lecturas almacenadas en el backend y las representa en una gráfica
+temporal junto con los eventos clínicos asociados. De este modo, el usuario puede
+interpretar la evolución reciente de la glucosa en relación con comidas, insulina y
+actividad física.
+
+\subsection{Registrar una comida}
+
+\textbf{Actor:} usuario con diabetes.
+
+\textbf{Flujo principal:} el usuario selecciona la opción de registrar una ingesta,
+introduce la información relevante y confirma la operación. La aplicación envía el evento
+al backend, que lo persiste en la base de datos y lo deja disponible para su posterior
+visualización. El registro queda integrado con el resto de la información clínica del
+usuario.
+
+\subsection{Registrar una dosis de insulina}
+
+\textbf{Actor:} usuario con diabetes.
+
+\textbf{Flujo principal:} el usuario accede al formulario de insulina, selecciona el tipo
+de insulina, indica la dosis administrada y guarda el registro. La aplicación comunica la
+información al backend, que la almacena de forma estructurada para su uso posterior en la
+visualización y en la lógica de recomendación. Así, el sistema puede contextualizar la
+curva glucémica con la pauta de insulina aplicada.
+
+\subsection{Registrar actividad física}
+
+\textbf{Actor:} usuario con diabetes.
+
+\textbf{Flujo principal:} el usuario abre la opción de actividad física, selecciona el
+deporte o tipo de ejercicio realizado, completa los datos requeridos y confirma el
+registro. El sistema guarda la información en el backend y la incorpora a la historia
+temporal del usuario. Esto permite analizar la posible influencia del ejercicio sobre la
+evolución glucémica posterior.
+
+\subsection{Editar el perfil terapéutico}
+
+\textbf{Actor:} usuario con diabetes.
+
+\textbf{Flujo principal:} el usuario entra en la pantalla de perfil y actualiza sus
+parámetros terapéuticos, como objetivos glucémicos, sensibilidad, ratio de hidratos o
+configuración de insulinas. Tras guardar los cambios, la aplicación envía la información
+al backend, donde queda persistida como referencia clínica principal del usuario. Este
+perfil sirve como base para personalizar la visualización y las recomendaciones.
+
+\subsection{Solicitar una recomendación al agente de IA}
+
+\textbf{Actor:} usuario con diabetes.
+
+\textbf{Flujo principal:} el usuario solicita ayuda desde la interfaz de la aplicación.
+El sistema recopila el contexto clínico disponible, incluyendo glucosa reciente, perfil
+terapéutico y eventos registrados, y lo envía al backend para construir la consulta al
+agente de IA. La respuesta generada se devuelve a la aplicación y se muestra al usuario en
+forma de orientación interpretativa sobre su situación actual.
+
+\section{Modelo de dominio}
+
+El modelo de dominio de GlucoMate gira en torno a las entidades \textit{Lectura de
+Glucosa}, \textit{Usuario}, \textit{Perfil Terapéutico}, \textit{Evento de Insulina},
+\textit{Comida}, \textit{Actividad Física} y \textit{Recomendación}. La relación entre
+ellas se desarrolla con más detalle en el capítulo de diseño, donde se concreta también
+su traducción al modelo relacional de la base de datos.
+
+Una característica relevante del dominio es su fuerte dependencia temporal. Casi todas las
+entidades poseen marcas de tiempo y se interpretan mejor como eventos dentro de una ventana
+reciente: la glucosa de las últimas 12 horas, la insulina activa de las últimas 4 horas o
+el ejercicio practicado dentro de la ventana de riesgo definida para cada deporte.
